@@ -217,4 +217,14 @@ ON CONFLICT (id) DO NOTHING;
 -- 6. Add report_path column to billing_records table (for clinical reports)
 ALTER TABLE billing_records ADD COLUMN IF NOT EXISTS report_path TEXT;
 
+-- 7. Storage Bucket RLS Policies for Clinical Reports
+DROP POLICY IF EXISTS "Apotheken-Mitarbeiter duerfen nur eigene Berichte lesen" ON storage.objects;
+CREATE POLICY "Apotheken-Mitarbeiter duerfen nur eigene Berichte lesen"
+ON storage.objects FOR SELECT TO authenticated
+USING (
+  bucket_id = 'clinical-reports' 
+  AND split_part(name, '/', 2) = (auth_pharmacy_id())::text
+);
+
+
 
