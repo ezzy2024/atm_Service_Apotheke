@@ -4,6 +4,7 @@
 DROP TABLE IF EXISTS billing_records CASCADE;
 DROP TABLE IF EXISTS consent_agreements CASCADE;
 DROP TABLE IF EXISTS appointments CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
 DROP TABLE IF EXISTS pharmacies CASCADE;
 
 -- Enum for service type
