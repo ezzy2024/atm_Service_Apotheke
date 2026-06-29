@@ -765,8 +765,10 @@ export default function Session() {
                   email: "patient@serviceapotheke.tech"
                 }}
                 getIFrameRef={(iframeRef) => {
-                  iframeRef.style.height = "100%";
-                  iframeRef.style.width = "100%";
+                  if (iframeRef) {
+                    iframeRef.style.height = "100%";
+                    iframeRef.style.width = "100%";
+                  }
                 }}
               />
             </div>

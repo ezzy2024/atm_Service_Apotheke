@@ -669,8 +669,10 @@ export default function Dashboard() {
                   email: "apotheke@serviceapotheke.tech"
                 }}
                 getIFrameRef={(iframeRef) => {
-                  iframeRef.style.height = "100%";
-                  iframeRef.style.width = "100%";
+                  if (iframeRef) {
+                    iframeRef.style.height = "100%";
+                    iframeRef.style.width = "100%";
+                  }
                 }}
               />
             )}
