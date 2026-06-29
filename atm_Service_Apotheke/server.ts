@@ -459,6 +459,216 @@ async function startServer() {
     }
   });
 
+  // B2B Registration (creates pharmacy, auth user, and pharmacist profile)
+  app.post("/api/auth/register-b2b", async (req, res) => {
+    try {
+      const { name, ik_nummer, bsnr, admin_email, password, telefon } = req.body;
+
+      if (!name || !ik_nummer || !bsnr || !admin_email || !password) {
+        return res.status(400).json({ error: "Fehlende Pflichtfelder" });
+      }
+
+      // 1. Create the Pharmacy in pharmacies table
+      const { data: pharmacy, error: pharmacyErr } = await supabaseAdmin
+        .from("pharmacies")
+        .insert([
+          {
+            name,
+            ik_nummer,
+            bsnr,
+            ansprechpartner: admin_email,
+            telefon,
+            status: "pending",
+            is_approved: false,
+            onboarding_status: "pending_approval",
+          }
+        ])
+        .select("*")
+        .single();
+
+      if (pharmacyErr || !pharmacy) {
+        console.error("Error creating pharmacy:", pharmacyErr);
+        return res.status(500).json({ error: `Apothekenerstellung fehlgeschlagen: ${pharmacyErr?.message}` });
+      }
+
+      // 2. Create the Auth User in Supabase Auth
+      const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.createUser({
+        email: admin_email,
+        password: password,
+        email_confirm: true,
+        user_metadata: {
+          pharmacy_id: pharmacy.id,
+          role: "pharmacy_admin",
+        },
+        app_metadata: {
+          pharmacy_id: pharmacy.id,
+          role: "pharmacy_admin",
+        }
+      });
+
+      if (authErr || !authUser?.user) {
+        console.error("Error creating auth user:", authErr);
+        // Rollback: Delete created pharmacy to maintain consistency
+        await supabaseAdmin.from("pharmacies").delete().eq("id", pharmacy.id);
+        return res.status(500).json({ error: `Benutzererstellung fehlgeschlagen: ${authErr?.message}` });
+      }
+
+      // 3. Create Profile in profiles table
+      const { error: profileErr } = await supabaseAdmin
+        .from("profiles")
+        .insert([
+          {
+            id: authUser.user.id,
+            role: "pharmacy_admin",
+            pharmacy_id: pharmacy.id,
+            full_name: "Apotheken-Administrator",
+          }
+        ]);
+
+      if (profileErr) {
+        console.error("Error creating profile:", profileErr);
+        // Rollback: Delete auth user and pharmacy
+        await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
+        await supabaseAdmin.from("pharmacies").delete().eq("id", pharmacy.id);
+        return res.status(500).json({ error: `Profil-Erstellung fehlgeschlagen: ${profileErr.message}` });
+      }
+
+      res.status(201).json({ success: true, pharmacy_id: pharmacy.id, user_id: authUser.user.id });
+    } catch (error: any) {
+      console.error("Server error in register-b2b:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Upload Onboarding Document
+  app.post("/api/pharmacy/upload-document", async (req, res) => {
+    try {
+      const { pharmacy_id, doc_type, file_base64 } = req.body;
+
+      if (!pharmacy_id || !doc_type || !file_base64) {
+        return res.status(400).json({ error: "Fehlende Parameter" });
+      }
+
+      // Convert base64 to buffer
+      const buffer = Buffer.from(file_base64, 'base64');
+
+      // Create pharmacy-documents bucket if not exists
+      await supabaseAdmin.storage.createBucket('pharmacy-documents', { public: false }).catch(() => {});
+
+      const filePath = `${pharmacy_id}/${doc_type}.pdf`;
+      const { error: uploadErr } = await supabaseAdmin.storage
+        .from('pharmacy-documents')
+        .upload(filePath, buffer, {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+
+      if (uploadErr) {
+        console.error('Error uploading pharmacy document:', uploadErr);
+        return res.status(500).json({ error: `Upload fehlgeschlagen: ${uploadErr.message}` });
+      }
+
+      // Update document path in DB
+      let updateFields: any = {};
+      if (doc_type === 'operating_license') {
+        updateFields.operating_license_path = filePath;
+      } else if (doc_type === 'approbationsurkunde') {
+        updateFields.approbationsurkunde_path = filePath;
+      } else if (doc_type === 'avv_document') {
+        updateFields.avv_document_path = filePath;
+      }
+
+      const { data: pharmacy, error: fetchErr } = await supabaseAdmin
+        .from('pharmacies')
+        .select('*')
+        .eq('id', pharmacy_id)
+        .single();
+
+      if (fetchErr || !pharmacy) {
+        return res.status(404).json({ error: "Apotheke nicht gefunden" });
+      }
+
+      // Determine next onboarding status
+      // If they uploaded the final document, change status to 'pending_verification'
+      const hasLic = doc_type === 'operating_license' || pharmacy.operating_license_path;
+      const hasApp = doc_type === 'approbationsurkunde' || pharmacy.approbationsurkunde_path;
+      const hasAvv = doc_type === 'avv_document' || pharmacy.avv_document_path;
+
+      if (hasLic && hasApp && hasAvv) {
+        updateFields.onboarding_status = 'pending_verification';
+      } else {
+        updateFields.onboarding_status = 'pending_documents';
+      }
+
+      const { error: updateErr } = await supabaseAdmin
+        .from('pharmacies')
+        .update(updateFields)
+        .eq('id', pharmacy_id);
+
+      if (updateErr) {
+        console.error('Error updating pharmacy doc status:', updateErr);
+        return res.status(500).json({ error: updateErr.message });
+      }
+
+      res.status(200).json({ success: true, file_path: filePath, next_status: updateFields.onboarding_status });
+    } catch (error: any) {
+      console.error('Server error uploading document:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get signed URL for onboarding document
+  app.get("/api/admin/pharmacy-document-url", async (req, res) => {
+    try {
+      const { report_path } = req.query;
+      if (!report_path) {
+        return res.status(400).json({ error: "Missing report_path" });
+      }
+
+      const { data, error } = await supabaseAdmin.storage
+        .from("pharmacy-documents")
+        .createSignedUrl(report_path as string, 300); // 5 minutes expiry
+
+      if (error) {
+        console.error("Error creating signed URL for document:", error);
+        return res.status(500).json({ error: error.message });
+      }
+
+      res.json({ url: data.signedUrl });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Verify onboarding documents and activate pharmacy
+  app.post("/api/admin/pharmacies/:id/verify-documents", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { onboarding_status } = req.body; // 'active' or 'pending_documents' (rejected)
+
+      const isApproved = onboarding_status === 'active';
+
+      const { data, error } = await supabaseAdmin
+        .from("pharmacies")
+        .update({
+          onboarding_status,
+          is_approved: isApproved,
+          status: isApproved ? 'active' : 'pending'
+        })
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Chatbot Endpoint
   app.post("/api/chat", async (req, res) => {
     try {

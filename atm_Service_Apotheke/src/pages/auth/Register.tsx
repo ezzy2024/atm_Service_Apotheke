@@ -13,7 +13,8 @@ export default function Register() {
     name: '',
     ik_nummer: '',
     bsnr: '',
-    ansprechpartner: '',
+    admin_email: '',
+    password: '',
     telefon: '',
   });
 
@@ -22,13 +23,13 @@ export default function Register() {
   };
 
   const handleRegister = async () => {
-    if (!formData.name || !formData.ik_nummer || !formData.bsnr || !formData.ansprechpartner) {
+    if (!formData.name || !formData.ik_nummer || !formData.bsnr || !formData.admin_email || !formData.password) {
       alert("Bitte füllen Sie alle Pflichtfelder aus.");
       return;
     }
 
     try {
-      const response = await fetch("/api/admin/pharmacies", {
+      const response = await fetch("/api/auth/register-b2b", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -37,10 +38,9 @@ export default function Register() {
           name: formData.name,
           ik_nummer: formData.ik_nummer,
           bsnr: formData.bsnr,
-          ansprechpartner: formData.ansprechpartner,
+          admin_email: formData.admin_email,
+          password: formData.password,
           telefon: formData.telefon,
-          status: 'pending',
-          is_approved: false
         }),
       });
 
@@ -49,7 +49,7 @@ export default function Register() {
         throw new Error(errData.error || "Failed to register");
       }
 
-      alert("Registrierung erfolgreich. Der Super-Admin wird Ihre Anfrage prüfen.");
+      alert("Registrierung erfolgreich. Ihr B2B-Konto wurde angelegt. Sie können sich nun anmelden und Ihre Dokumente hochladen.");
       navigate('/login');
     } catch (e: any) {
       console.error(e);
@@ -83,8 +83,12 @@ export default function Register() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="ansprechpartner">Ansprechpartner / Admin-Email *</Label>
-            <Input id="ansprechpartner" value={formData.ansprechpartner} onChange={handleChange} placeholder="Max Mustermann / email@example.com" />
+            <Label htmlFor="admin_email">Admin-Email (Ansprechpartner) *</Label>
+            <Input id="admin_email" type="email" value={formData.admin_email} onChange={handleChange} placeholder="email@example.com" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Passwort *</Label>
+            <Input id="password" type="password" value={formData.password} onChange={handleChange} placeholder="Passwort vergeben" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="telefon">Telefon (Optional)</Label>

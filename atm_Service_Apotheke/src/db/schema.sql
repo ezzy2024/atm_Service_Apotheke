@@ -39,6 +39,10 @@ CREATE TABLE pharmacies (
     status pharmacy_status DEFAULT 'pending',
     avv_signed_at TIMESTAMPTZ,
     avv_akzeptiert_am TIMESTAMPTZ,
+    onboarding_status VARCHAR(50) DEFAULT 'pending_approval',
+    operating_license_path TEXT,
+    approbationsurkunde_path TEXT,
+    avv_document_path TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -226,6 +230,34 @@ USING (
   bucket_id = 'clinical-reports' 
   AND split_part(name, '/', 2) = (auth_pharmacy_id())::text
 );
+
+-- 8. Add onboarding columns to pharmacies table
+ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS onboarding_status VARCHAR(50) DEFAULT 'pending_approval';
+ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS operating_license_path TEXT;
+ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS approbationsurkunde_path TEXT;
+ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS avv_document_path TEXT;
+
+-- 9. Storage Bucket RLS Policies for Onboarding Documents
+DROP POLICY IF EXISTS "Apotheken-Admins duerfen eigene Dokumente verwalten" ON storage.objects;
+CREATE POLICY "Apotheken-Admins duerfen eigene Dokumente verwalten"
+ON storage.objects FOR ALL TO authenticated
+USING (
+  bucket_id = 'pharmacy-documents' 
+  AND split_part(name, '/', 1) = (auth_pharmacy_id())::text
+)
+WITH CHECK (
+  bucket_id = 'pharmacy-documents' 
+  AND split_part(name, '/', 1) = (auth_pharmacy_id())::text
+);
+
+DROP POLICY IF EXISTS "Super-Admins duerfen alle Dokumente lesen" ON storage.objects;
+CREATE POLICY "Super-Admins duerfen alle Dokumente lesen"
+ON storage.objects FOR SELECT TO authenticated
+USING (
+  bucket_id = 'pharmacy-documents'
+  AND (auth_user_role() = 'super_admin')
+);
+
 
 
 
