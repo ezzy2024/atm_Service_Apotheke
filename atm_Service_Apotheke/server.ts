@@ -466,7 +466,7 @@ async function startServer() {
       const genAI = getGemini();
       
       const chat = genAI.chats.create({
-        model: "gemini-3.1-pro-preview", // using pro for complex tasks
+        model: "gemini-2.5-flash", // using flash for higher quota limits and speed
         config: {
           systemInstruction: "Du bist ein hilfreicher und professioneller Assistent für eine deutsche Apotheke im Bereich der Assistierten Telemedizin (aTM). Du hilfst Apothekern bei Fragen zu Ersteinschätzung, Videosprechstunden und Sonderkennzeichen. Antworte immer auf Deutsch und professionell.",
         }
@@ -483,7 +483,7 @@ async function startServer() {
       contents.push({ role: 'user', parts: [{ text: message }] });
 
       const response = await genAI.models.generateContent({
-        model: "gemini-3.1-pro-preview",
+        model: "gemini-2.5-flash",
         contents,
         config: {
           systemInstruction: "Du bist ein hilfreicher und professioneller Assistent für eine deutsche Apotheke im Bereich der Assistierten Telemedizin (aTM). Du hilfst Apothekern bei Fragen zu Ersteinschätzung, Videosprechstunden und Sonderkennzeichen. Antworte immer auf Deutsch und professionell."
@@ -504,7 +504,7 @@ async function startServer() {
       const genAI = getGemini();
       
       const response = await genAI.models.generateContent({
-        model: "gemini-3.1-pro-preview",
+        model: "gemini-2.5-flash",
         contents: {
           parts: [
             {
