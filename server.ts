@@ -549,8 +549,9 @@ async function startServer() {
         return res.status(400).json({ error: "Fehlende Parameter" });
       }
 
-      // Convert base64 to buffer
+      // Convert base64 to Uint8Array for browser-like fetch in Supabase JS
       const buffer = Buffer.from(file_base64, 'base64');
+      const uint8Array = new Uint8Array(buffer);
 
       // Create pharmacy-documents bucket if not exists
       await supabaseAdmin.storage.createBucket('pharmacy-documents', { public: false }).catch(() => {});
@@ -558,7 +559,7 @@ async function startServer() {
       const filePath = `${pharmacy_id}/${doc_type}.pdf`;
       const { error: uploadErr } = await supabaseAdmin.storage
         .from('pharmacy-documents')
-        .upload(filePath, buffer, {
+        .upload(filePath, uint8Array, {
           contentType: 'application/pdf',
           upsert: true,
         });
@@ -653,7 +654,8 @@ async function startServer() {
         data: {
           role: "pharmacist",
           pharmacy_id: pharmacy_id
-        }
+        },
+        redirectTo: "https://atm-service-apotheke.onrender.com/login"
       });
 
       if (error) {
