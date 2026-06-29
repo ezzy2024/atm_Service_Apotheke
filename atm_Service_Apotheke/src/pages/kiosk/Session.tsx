@@ -104,6 +104,28 @@ export default function Session() {
         throw new Error(errData.error || "Failed to save billing record");
       }
 
+      const data = await response.json();
+      const billingId = data.billing_id;
+
+      // Trigger PDF report generation silently in the background
+      fetch("/api/kiosk/generate-report", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          consent_id: consentId,
+          billing_id: billingId,
+          triage_data: {
+            symptoms: triageCategory,
+            duration: triageDuration,
+            urgency: urgency,
+          }
+        })
+      }).catch(err => {
+        console.error("Failed to generate clinical report silently:", err);
+      });
+
       // Dispatch custom event to notify Admin Dashboard (simulating real-time notification)
       const channel = new BroadcastChannel("kiosk_alerts");
       channel.postMessage({ type: "triage_completed", serviceType: type });

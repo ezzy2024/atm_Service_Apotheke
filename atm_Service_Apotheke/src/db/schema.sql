@@ -214,3 +214,7 @@ INSERT INTO pharmacies (id, name, ik_nummer, bsnr, is_approved, status)
 VALUES ('d3b07384-d113-4956-a50e-a1c563e4410a', 'Demo-Apotheke', '123456789', '000000000', true, 'active')
 ON CONFLICT (id) DO NOTHING;
 
+-- 6. Add report_path column to billing_records table (for clinical reports)
+ALTER TABLE billing_records ADD COLUMN IF NOT EXISTS report_path TEXT;
+
+

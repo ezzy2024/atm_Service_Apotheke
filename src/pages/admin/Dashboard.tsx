@@ -9,6 +9,7 @@ import {
   FileText,
   CheckCircle2,
   Plus,
+  Video,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -43,6 +44,8 @@ import {
   Appointment,
   ServiceType,
 } from "@/src/types";
+
+import { JitsiMeeting } from "@jitsi/react-sdk";
 
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -89,6 +92,7 @@ export default function Dashboard() {
   const [billingRecords, setBillingRecords] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [activeVideoConsentId, setActiveVideoConsentId] = useState<string | null>(null);
   const [newEvent, setNewEvent] = useState({
     title: "",
     start: new Date(),
@@ -525,6 +529,7 @@ export default function Dashboard() {
                       <TableHead>Leistungsart</TableHead>
                       <TableHead>Sonderkennzeichen</TableHead>
                       <TableHead className="text-right">Betrag</TableHead>
+                      <TableHead className="text-right">Aktion</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -573,6 +578,19 @@ export default function Dashboard() {
                             ).toFixed(2)}{" "}
                             €
                           </TableCell>
+                          <TableCell className="text-right">
+                            {(record.service_type === "video_only" ||
+                              record.service_type === "triage_and_video") && (
+                              <Button
+                                size="sm"
+                                className="bg-[#0082C8] hover:bg-[#006A9C] text-white gap-2"
+                                onClick={() => setActiveVideoConsentId(record.consent_id || record.id)}
+                              >
+                                <Video className="w-4 h-4" />
+                                Beitreten
+                              </Button>
+                            )}
+                          </TableCell>
                         </TableRow>
                       );
                     })}
@@ -583,6 +601,37 @@ export default function Dashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Video Call Modal */}
+      <Dialog open={!!activeVideoConsentId} onOpenChange={(open) => !open && setActiveVideoConsentId(null)}>
+        <DialogContent className="max-w-[90vw] w-[1200px] h-[80vh] p-0 overflow-hidden bg-slate-900 border-none">
+          {activeVideoConsentId && (
+            <JitsiMeeting
+              domain="meet.jit.si"
+              roomName={`ServiceApotheke-aTM-${activeVideoConsentId}`}
+              configOverwrite={{
+                startWithAudioMuted: false,
+                startWithVideoMuted: false,
+                prejoinPageEnabled: false,
+                disableDeepLinking: true,
+              }}
+              userInfo={{
+                displayName: localStorage.getItem("demo_pharmacist_name") || "Apotheken-Personal",
+                email: "",
+              }}
+              getIFrameRef={(iframeRef) => {
+                iframeRef.style.height = "100%";
+                iframeRef.style.width = "100%";
+              }}
+              onApiReady={(externalApi) => {
+                externalApi.addListener("videoConferenceLeft", () => {
+                  setActiveVideoConsentId(null);
+                });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

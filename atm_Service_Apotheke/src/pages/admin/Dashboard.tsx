@@ -173,6 +173,28 @@ export default function Dashboard() {
     return date < cutoff ? 30.0 : 25.5;
   };
 
+  const handleJoinVideo = (recordId: string) => {
+    alert(`Videosprechstunde für Abrechnung ${recordId} wird gestartet... (WebRTC-Kanal wird geöffnet)`);
+  };
+
+  const handleViewReport = async (reportPath: string) => {
+    try {
+      const response = await fetch(`/api/admin/report-url?report_path=${encodeURIComponent(reportPath)}`);
+      if (!response.ok) {
+        throw new Error("Fehler beim Abrufen des Berichts-Links");
+      }
+      const data = await response.json();
+      if (data && data.url) {
+        window.open(data.url, "_blank");
+      } else {
+        alert("Bericht konnte nicht geladen werden.");
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || "Fehler beim Laden des Berichts.");
+    }
+  };
+
   const generateBillingExport = () => {
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent +=
@@ -510,6 +532,7 @@ export default function Dashboard() {
                       <TableHead>Leistungsart</TableHead>
                       <TableHead>Sonderkennzeichen</TableHead>
                       <TableHead className="text-right">Betrag</TableHead>
+                      <TableHead className="text-right">Aktionen</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -529,6 +552,7 @@ export default function Dashboard() {
                             ] as ServiceType,
                           ),
                           amount: calculateAmount(c.signed_date),
+                          report_path: undefined,
                         }))
                     ).map((record) => {
                       return (
@@ -557,6 +581,27 @@ export default function Dashboard() {
                               calculateAmount(record.date_of_service)
                             ).toFixed(2)}{" "}
                             €
+                          </TableCell>
+                          <TableCell className="text-right space-x-2">
+                            {(record.service_type === "video_only" || record.service_type === "triage_and_video") && (
+                              <Button
+                                size="sm"
+                                className="bg-[#0082C8] hover:bg-[#006A9C] text-white text-xs font-bold py-1 px-3 cursor-pointer"
+                                onClick={() => handleJoinVideo(record.id)}
+                              >
+                                Videosprechstunde beitreten
+                              </Button>
+                            )}
+                            {record.report_path && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs font-bold py-1 px-3 border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer"
+                                onClick={() => handleViewReport(record.report_path)}
+                              >
+                                Anamnese-Protokoll ansehen
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       );

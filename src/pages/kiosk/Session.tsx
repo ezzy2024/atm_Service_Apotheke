@@ -11,6 +11,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { JitsiMeeting } from "@jitsi/react-sdk";
 
 type Step =
   | "consent"
@@ -699,10 +700,29 @@ export default function Session() {
               Bitte warten Sie, Sie werden in Kürze mit dem nächsten verfügbaren
               Arzt verbunden.
             </p>
-            <div className="w-full max-w-md bg-slate-100 p-6 rounded-2xl flex items-center justify-center border border-slate-200">
-              <p className="text-lg text-slate-500 font-mono animate-pulse">
-                Verbindung wird aufgebaut...
-              </p>
+            <div className="w-full h-[500px] bg-slate-900 rounded-2xl overflow-hidden border-2 border-slate-200">
+              <JitsiMeeting
+                domain="meet.jit.si"
+                roomName={`ServiceApotheke-aTM-${consentId}`}
+                configOverwrite={{
+                  startWithAudioMuted: false,
+                  startWithVideoMuted: false,
+                  prejoinPageEnabled: false,
+                  disableDeepLinking: true,
+                  toolbarButtons: ["microphone", "camera"],
+                }}
+                interfaceConfigOverwrite={{
+                  DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
+                }}
+                userInfo={{
+                  displayName: name || "Patient",
+                  email: "",
+                }}
+                getIFrameRef={(iframeRef) => {
+                  iframeRef.style.height = "100%";
+                  iframeRef.style.width = "100%";
+                }}
+              />
             </div>
             <Button
               className="mt-12 py-8 px-12 text-2xl bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl"
