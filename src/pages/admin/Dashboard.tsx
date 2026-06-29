@@ -45,6 +45,8 @@ import {
   ServiceType,
 } from "@/src/types";
 
+import { JitsiMeeting } from "@jitsi/react-sdk";
+
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -84,10 +86,10 @@ const MOCK_CONSENTS: ConsentAgreement[] = [
 ];
 
 export default function Dashboard() {
-  const [appointments, setAppointments] =
-    useState<Appointment[]>(MOCK_APPOINTMENTS);
-  const [consents, setConsents] = useState<ConsentAgreement[]>(MOCK_CONSENTS);
-  const [billingRecords, setBillingRecords] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [agreements, setAgreements] = useState<ConsentAgreement[]>([]);
+  const [billingRecords, setBillingRecords] = useState<BillingRecord[]>([]);
+  const [activeVideoCall, setActiveVideoCall] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [newEvent, setNewEvent] = useState({
@@ -130,7 +132,7 @@ export default function Dashboard() {
       if (consentRes.ok) {
         const consentData = await consentRes.json();
         if (consentData && consentData.length > 0) {
-          setConsents(consentData);
+          setAgreements(consentData);
         }
       }
 
@@ -175,7 +177,7 @@ export default function Dashboard() {
   };
 
   const handleJoinVideo = (recordId: string) => {
-    alert(`Videosprechstunde für Abrechnung ${recordId} wird gestartet... (WebRTC-Kanal wird geöffnet)`);
+    setActiveVideoCall(recordId);
   };
 
   const handleViewReport = async (reportPath: string) => {
@@ -204,7 +206,7 @@ export default function Dashboard() {
     const recordsToExport =
       billingRecords.length > 0
         ? billingRecords
-        : consents.map((c) => ({
+        : agreements.map((c) => ({
             consent_agreements: c,
             service_type: "triage_only",
             date_of_service: c.signed_date,
@@ -214,7 +216,7 @@ export default function Dashboard() {
               localStorage.getItem("demo_pharmacist_name") || "Apotheker",
           }));
 
-    recordsToExport.forEach((record) => {
+    recordsToExport.forEach((record: any) => {
       const consent = record.consent_agreements;
       const dateStr = record.date_of_service
         ? format(new Date(record.date_of_service), "dd.MM.yyyy")
@@ -385,23 +387,19 @@ export default function Dashboard() {
           </Card>
 
           <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent>
               <DialogHeader>
-                <DialogTitle>Neuen Termin eintragen</DialogTitle>
+                <DialogTitle>Termin / Blockierung eintragen</DialogTitle>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="patient" className="text-right">
-                    Patient
-                  </Label>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Titel</Label>
                   <Input
-                    id="patient"
                     value={newEvent.title}
                     onChange={(e) =>
                       setNewEvent({ ...newEvent, title: e.target.value })
                     }
-                    className="col-span-3"
-                    placeholder="Name des Patienten"
+                    placeholder="z.B. Wartung oder Termin"
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -459,7 +457,7 @@ export default function Dashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {consents.map((c) => {
+                    {agreements.map((c) => {
                       const signedDate = new Date(c.signed_date);
                       const expiryDate = new Date(signedDate);
                       expiryDate.setFullYear(expiryDate.getFullYear() + 4);
@@ -539,7 +537,7 @@ export default function Dashboard() {
                   <TableBody>
                     {(billingRecords.length > 0
                       ? billingRecords
-                      : consents.map((c, idx) => ({
+                      : agreements.map((c, idx) => ({
                           id: c.id,
                           date_of_service: c.signed_date,
                           service_type: [
@@ -614,6 +612,71 @@ export default function Dashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+      <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Termin / Blockierung eintragen</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Titel</Label>
+              <Input
+                value={newEvent.title}
+                onChange={(e) =>
+                  setNewEvent({ ...newEvent, title: e.target.value })
+                }
+                placeholder="z.B. Wartung oder Termin"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddEventOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button onClick={handleAddEvent}>Speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Video Call Dialog */}
+      <Dialog
+        open={!!activeVideoCall}
+        onOpenChange={(open) => {
+          if (!open) setActiveVideoCall(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-4xl h-[80vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle>Live Videosprechstunde</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 w-full relative bg-black mt-2">
+            {activeVideoCall && (
+              <JitsiMeeting
+                roomName={`atm-service-apotheke-${activeVideoCall}`}
+                configOverwrite={{
+                  startWithAudioMuted: false,
+                  startWithVideoMuted: false,
+                  disableModeratorIndicator: true,
+                  enableEmailInStats: false,
+                  prejoinPageEnabled: false,
+                }}
+                interfaceConfigOverwrite={{
+                  DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
+                  SHOW_CHROME_EXTENSION_BANNER: false,
+                }}
+                userInfo={{
+                  displayName: "Apotheker",
+                  email: "apotheke@serviceapotheke.tech"
+                }}
+                getIFrameRef={(iframeRef) => {
+                  iframeRef.style.height = "100%";
+                  iframeRef.style.width = "100%";
+                }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

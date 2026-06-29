@@ -40,14 +40,30 @@ export default function Settings() {
     }
   };
 
-  const handleInvite = () => {
+  const handleInvite = async () => {
     if (!avvSavedDate) {
       alert("Bitte akzeptieren Sie zuerst den AVV.");
       return;
     }
     if (!inviteEmail) return;
-    alert(`Einladung an ${inviteEmail} wurde versendet.`);
-    setInviteEmail("");
+    
+    try {
+      // In a real app we would get this from context or auth session
+      const pharmacyId = localStorage.getItem("demo_pharmacy_id") || "d3b07384-d113-4956-a50e-a1c563e4410a";
+      const response = await fetch("/api/admin/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail, pharmacy_id: pharmacyId })
+      });
+      const data = await response.json();
+      
+      if (!response.ok) throw new Error(data.error);
+      
+      alert(`Einladung an ${inviteEmail} wurde erfolgreich versendet!`);
+      setInviteEmail("");
+    } catch(e: any) {
+      alert(`Fehler beim Einladen: ${e.message}`);
+    }
   };
 
   return (

@@ -640,6 +640,53 @@ async function startServer() {
     }
   });
 
+  // Invite pharmacist via Supabase Auth
+  app.post("/api/admin/invite", async (req, res) => {
+    try {
+      const { email, pharmacy_id } = req.body;
+      if (!email || !pharmacy_id) {
+        return res.status(400).json({ error: "Missing email or pharmacy_id" });
+      }
+
+      // Invite user through Supabase Auth
+      const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        data: {
+          role: "pharmacist",
+          pharmacy_id: pharmacy_id
+        }
+      });
+
+      if (error) {
+        console.error("Error inviting user:", error);
+        return res.status(500).json({ error: error.message });
+      }
+
+      // Create a profile for the invited user
+      if (data.user) {
+        const { error: profileErr } = await supabaseAdmin
+          .from("profiles")
+          .insert([
+            {
+              id: data.user.id,
+              role: "pharmacist",
+              pharmacy_id: pharmacy_id,
+              full_name: email.split("@")[0], // Temporary name
+            }
+          ]);
+        
+        if (profileErr) {
+          console.error("Error creating profile for invited user:", profileErr);
+          // Non-fatal error, the invite was still sent
+        }
+      }
+
+      res.status(200).json({ success: true, user: data.user });
+    } catch (error: any) {
+      console.error("Server error inviting user:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Verify onboarding documents and activate pharmacy
   app.post("/api/admin/pharmacies/:id/verify-documents", async (req, res) => {
     try {

@@ -513,7 +513,7 @@ export default function Session() {
                       Videosprechstunde
                     </h3>
                     <p className="text-slate-600">
-                      Direkter Kontakt mit einer Ärztin oder einem Arzt über
+                      Direkter Kontakt mit einer Apothekerin oder einem Apotheker über
                       gesicherte Videoverbindung.
                     </p>
                   </div>
@@ -691,14 +691,14 @@ export default function Session() {
               {urgency === "Akut / Dringend" ? (
                 <p>
                   Eine ärztliche Abklärung ist zeitnah empfohlen. Sie können nun
-                  direkt aus der Apotheke eine Videosprechstunde mit einem Arzt
+                  direkt aus der Apotheke eine Videosprechstunde mit einem Apotheker
                   starten.
                 </p>
               ) : (
                 <p>
                   Eine sofortige ärztliche Abklärung ist aktuell nicht zwingend
                   erforderlich. Bitte vereinbaren Sie bei Bedarf einen regulären
-                  Termin bei Ihrem Hausarzt.
+                  Termin bei Ihrem Hausarzt oder Spezialisten.
                 </p>
               )}
             </div>
@@ -733,26 +733,43 @@ export default function Session() {
         )}
 
         {step === "video" && (
-          <div className="max-w-4xl mx-auto h-full flex flex-col items-center justify-center space-y-8 animate-in fade-in zoom-in duration-500">
-            <Video className="w-24 h-24 text-[#0082C8]" />
-            <h2 className="text-4xl font-bold text-slate-800">
-              Videosprechstunde
-            </h2>
-            <p className="text-2xl text-slate-600 text-center max-w-2xl">
-              Bitte warten Sie, Sie werden in Kürze mit dem nächsten verfügbaren
-              Arzt verbunden.
-            </p>
-            <div className="w-full max-w-md bg-slate-100 p-6 rounded-2xl flex items-center justify-center border border-slate-200">
-              <p className="text-lg text-slate-500 font-mono animate-pulse">
-                Verbindung wird aufgebaut...
-              </p>
+          <div className="max-w-6xl mx-auto h-[80vh] flex flex-col space-y-4 animate-in fade-in zoom-in duration-500">
+            <div className="flex items-center justify-between">
+              <h2 className="text-3xl font-bold text-slate-800">
+                Live Videosprechstunde
+              </h2>
+              <Button
+                variant="destructive"
+                className="font-bold py-6 px-8"
+                onClick={terminateSession}
+              >
+                Sitzung beenden
+              </Button>
             </div>
-            <Button
-              className="mt-12 py-8 px-12 text-2xl bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl"
-              onClick={terminateSession}
-            >
-              Sitzung beenden
-            </Button>
+            <div className="flex-1 bg-black rounded-2xl overflow-hidden border-4 border-slate-200">
+              <JitsiMeeting
+                roomName={`atm-service-apotheke-${consentId}`}
+                configOverwrite={{
+                  startWithAudioMuted: false,
+                  startWithVideoMuted: false,
+                  disableModeratorIndicator: true,
+                  enableEmailInStats: false,
+                  prejoinPageEnabled: false, // Skip prejoin page for direct connection
+                }}
+                interfaceConfigOverwrite={{
+                  DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
+                  SHOW_CHROME_EXTENSION_BANNER: false,
+                }}
+                userInfo={{
+                  displayName: name || "Patient",
+                  email: "patient@serviceapotheke.tech"
+                }}
+                getIFrameRef={(iframeRef) => {
+                  iframeRef.style.height = "100%";
+                  iframeRef.style.width = "100%";
+                }}
+              />
+            </div>
           </div>
         )}
       </div>

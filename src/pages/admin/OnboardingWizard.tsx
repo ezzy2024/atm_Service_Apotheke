@@ -326,11 +326,16 @@ export default function OnboardingWizard() {
                   </p>
                 </div>
                 <div className="pt-4 space-y-2">
-                  <Button variant="link" size="sm" className="p-0 text-[#0082C8] text-xs font-semibold h-auto" onClick={() => {
-                    alert("AVV-Vorlage Download wird gestartet...");
-                  }}>
-                    AVV-Vorlage herunterladen
-                  </Button>
+                  <a 
+                    href="/avv-vorlage.pdf" 
+                    download="AVV-Vertrag-Service-Apotheke.pdf" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                  >
+                    <Button variant="link" size="sm" className="p-0 text-[#0082C8] text-xs font-semibold h-auto">
+                      AVV-Vorlage herunterladen
+                    </Button>
+                  </a>
                   
                   {pharmacy.avv_document_path ? (
                     <div className="text-green-600 text-xs font-semibold flex items-center gap-1">
