@@ -4,6 +4,7 @@
 DROP TABLE IF EXISTS billing_records CASCADE;
 DROP TABLE IF EXISTS consent_agreements CASCADE;
 DROP TABLE IF EXISTS appointments CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
 DROP TABLE IF EXISTS pharmacies CASCADE;
 
 -- Enum for service type
@@ -38,6 +39,10 @@ CREATE TABLE pharmacies (
     status pharmacy_status DEFAULT 'pending',
     avv_signed_at TIMESTAMPTZ,
     avv_akzeptiert_am TIMESTAMPTZ,
+    onboarding_status VARCHAR(50) DEFAULT 'pending_approval',
+    operating_license_path TEXT,
+    approbationsurkunde_path TEXT,
+    avv_document_path TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -131,6 +136,8 @@ ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consent_agreements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE billing_records ENABLE ROW LEVEL SECURITY;
 
+
+
 -- Assuming auth.uid() maps to a user who belongs to a pharmacy, or the token has a claim
 -- Let's define helper functions
 CREATE OR REPLACE FUNCTION auth_user_role() RETURNS app_role AS $$
@@ -138,7 +145,10 @@ CREATE OR REPLACE FUNCTION auth_user_role() RETURNS app_role AS $$
 $$ LANGUAGE SQL STABLE;
 
 CREATE OR REPLACE FUNCTION auth_pharmacy_id() RETURNS UUID AS $$
-  SELECT pharmacy_id FROM profiles WHERE id = auth.uid();
+  SELECT COALESCE(
+    nullif(current_setting('request.jwt.claims', true)::json->'app_metadata'->>'pharmacy_id', '')::uuid,
+    nullif(current_setting('request.jwt.claims', true)::json->'user_metadata'->>'pharmacy_id', '')::uuid
+  );
 $$ LANGUAGE SQL STABLE;
 
 -- Profiles
@@ -156,58 +166,26 @@ CREATE POLICY "Pharmacy admin can update own pharmacy" ON pharmacies
     FOR UPDATE TO authenticated
     USING (id = auth_pharmacy_id() AND auth_user_role() = 'pharmacy_admin');
 
--- Appointments policies
-CREATE POLICY "Super admin can view all appointments" ON appointments FOR SELECT TO authenticated USING (auth_user_role() = 'super_admin');
-CREATE POLICY "Users can view their pharmacy's appointments" ON appointments
-    FOR SELECT TO authenticated
-    USING (pharmacy_id = auth_pharmacy_id());
+-- Appointments
+DROP POLICY IF EXISTS "Pharmacist_Appointments" ON appointments;
+CREATE POLICY "Pharmacist_Appointments" ON appointments
+  FOR ALL TO authenticated
+  USING (pharmacy_id = auth_pharmacy_id())
+  WITH CHECK (pharmacy_id = auth_pharmacy_id());
 
-CREATE POLICY "Users can insert appointments for their pharmacy" ON appointments
-    FOR INSERT TO authenticated
-    WITH CHECK (pharmacy_id = auth_pharmacy_id());
+-- Consent Agreements
+DROP POLICY IF EXISTS "Pharmacist_Consent" ON consent_agreements;
+CREATE POLICY "Pharmacist_Consent" ON consent_agreements
+  FOR ALL TO authenticated
+  USING (pharmacy_id = auth_pharmacy_id())
+  WITH CHECK (pharmacy_id = auth_pharmacy_id());
 
-CREATE POLICY "Users can update their pharmacy's appointments" ON appointments
-    FOR UPDATE TO authenticated
-    USING (pharmacy_id = auth_pharmacy_id());
-
-CREATE POLICY "Users can delete their pharmacy's appointments" ON appointments
-    FOR DELETE TO authenticated
-    USING (pharmacy_id = auth_pharmacy_id());
-
--- Consent Agreements policies
--- Note: super_admin CANNOT read consent agreements
-CREATE POLICY "Users can view their pharmacy's consent agreements" ON consent_agreements
-    FOR SELECT TO authenticated
-    USING (pharmacy_id = auth_pharmacy_id() AND auth_user_role() IN ('pharmacy_admin', 'pharmacist'));
-
-CREATE POLICY "Users can insert consent agreements for their pharmacy" ON consent_agreements
-    FOR INSERT TO authenticated
-    WITH CHECK (pharmacy_id = auth_pharmacy_id());
-
-CREATE POLICY "Users can update their pharmacy's consent agreements" ON consent_agreements
-    FOR UPDATE TO authenticated
-    USING (pharmacy_id = auth_pharmacy_id());
-
-CREATE POLICY "Users can delete their pharmacy's consent agreements" ON consent_agreements
-    FOR DELETE TO authenticated
-    USING (pharmacy_id = auth_pharmacy_id());
-
--- Billing Records policies
-CREATE POLICY "Users can view their pharmacy's billing records" ON billing_records
-    FOR SELECT TO authenticated
-    USING (pharmacy_id = auth_pharmacy_id());
-
-CREATE POLICY "Users can insert billing records for their pharmacy" ON billing_records
-    FOR INSERT TO authenticated
-    WITH CHECK (pharmacy_id = auth_pharmacy_id());
-
-CREATE POLICY "Users can update their pharmacy's billing records" ON billing_records
-    FOR UPDATE TO authenticated
-    USING (pharmacy_id = auth_pharmacy_id());
-
-CREATE POLICY "Users can delete their pharmacy's billing records" ON billing_records
-    FOR DELETE TO authenticated
-    USING (pharmacy_id = auth_pharmacy_id());
+-- Billing Records
+DROP POLICY IF EXISTS "Pharmacist_Billing" ON billing_records;
+CREATE POLICY "Pharmacist_Billing" ON billing_records
+  FOR ALL TO authenticated
+  USING (consent_id IN (SELECT id FROM consent_agreements WHERE pharmacy_id = auth_pharmacy_id()))
+  WITH CHECK (consent_id IN (SELECT id FROM consent_agreements WHERE pharmacy_id = auth_pharmacy_id()));
 
 -- Notification Triggers Placeholder (Using logical functions since pg_net might not be enabled)
 CREATE OR REPLACE FUNCTION notify_superadmin_new_pharmacy() RETURNS TRIGGER AS $$
@@ -235,3 +213,51 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER on_pharmacy_approved
 AFTER UPDATE ON pharmacies
 FOR EACH ROW EXECUTE FUNCTION notify_pharmacy_approval();
+
+-- 5. Seed default demo pharmacy for local testing and demo logins
+INSERT INTO pharmacies (id, name, ik_nummer, bsnr, is_approved, status)
+VALUES ('d3b07384-d113-4956-a50e-a1c563e4410a', 'Demo-Apotheke', '123456789', '000000000', true, 'active')
+ON CONFLICT (id) DO NOTHING;
+
+-- 6. Add report_path column to billing_records table (for clinical reports)
+ALTER TABLE billing_records ADD COLUMN IF NOT EXISTS report_path TEXT;
+
+-- 7. Storage Bucket RLS Policies for Clinical Reports
+DROP POLICY IF EXISTS "Apotheken-Mitarbeiter duerfen nur eigene Berichte lesen" ON storage.objects;
+CREATE POLICY "Apotheken-Mitarbeiter duerfen nur eigene Berichte lesen"
+ON storage.objects FOR SELECT TO authenticated
+USING (
+  bucket_id = 'clinical-reports' 
+  AND split_part(name, '/', 2) = (auth_pharmacy_id())::text
+);
+
+-- 8. Add onboarding columns to pharmacies table
+ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS onboarding_status VARCHAR(50) DEFAULT 'pending_approval';
+ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS operating_license_path TEXT;
+ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS approbationsurkunde_path TEXT;
+ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS avv_document_path TEXT;
+
+-- 9. Storage Bucket RLS Policies for Onboarding Documents
+DROP POLICY IF EXISTS "Apotheken-Admins duerfen eigene Dokumente verwalten" ON storage.objects;
+CREATE POLICY "Apotheken-Admins duerfen eigene Dokumente verwalten"
+ON storage.objects FOR ALL TO authenticated
+USING (
+  bucket_id = 'pharmacy-documents' 
+  AND split_part(name, '/', 1) = (auth_pharmacy_id())::text
+)
+WITH CHECK (
+  bucket_id = 'pharmacy-documents' 
+  AND split_part(name, '/', 1) = (auth_pharmacy_id())::text
+);
+
+DROP POLICY IF EXISTS "Super-Admins duerfen alle Dokumente lesen" ON storage.objects;
+CREATE POLICY "Super-Admins duerfen alle Dokumente lesen"
+ON storage.objects FOR SELECT TO authenticated
+USING (
+  bucket_id = 'pharmacy-documents'
+  AND (auth_user_role() = 'super_admin')
+);
+
+
+
+

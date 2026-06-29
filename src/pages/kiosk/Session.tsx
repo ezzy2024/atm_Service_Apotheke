@@ -11,7 +11,6 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { JitsiMeeting } from "@jitsi/react-sdk";
 
 type Step =
   | "consent"
@@ -75,10 +74,17 @@ export default function Session() {
     // For demo purposes, we read it from localStorage.
     const pharmacistName =
       localStorage.getItem("demo_pharmacist_name") || "Apotheker";
+    const pharmacyId =
+      localStorage.getItem("demo_pharmacy_id") || "d3b07384-d113-4956-a50e-a1c563e4410a";
 
     try {
-      await supabase.from("billing_records").insert([
-        {
+      const response = await fetch("/api/kiosk/billing", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pharmacy_id: pharmacyId,
           consent_id: consentId,
           service_type: type,
           date_of_service: new Date().toISOString().split("T")[0],
@@ -90,8 +96,35 @@ export default function Session() {
                 ? "19816336"
                 : "19816342",
           executed_by_pharmacist_name: pharmacistName,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Failed to save billing record");
+      }
+
+      const data = await response.json();
+      const billingId = data.billing_id;
+
+      // Trigger PDF report generation silently in the background
+      fetch("/api/kiosk/generate-report", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      ]);
+        body: JSON.stringify({
+          consent_id: consentId,
+          billing_id: billingId,
+          triage_data: {
+            symptoms: triageCategory,
+            duration: triageDuration,
+            urgency: urgency,
+          }
+        })
+      }).catch(err => {
+        console.error("Failed to generate clinical report silently:", err);
+      });
 
       // Dispatch custom event to notify Admin Dashboard (simulating real-time notification)
       const channel = new BroadcastChannel("kiosk_alerts");
@@ -170,32 +203,41 @@ export default function Session() {
 
       const fullStatusField = statusField5 + "83";
 
-      // Save to Supabase (Pharmacy ID logic would normally come from session, assuming single-tenant or handled via RLS context for now)
-      const { data, error } = await supabase
-        .from("consent_agreements")
-        .insert([
-          {
-            patient_name: name,
-            health_insurance_name: healthInsuranceName,
-            health_insurance_number: insuranceNumber,
-            ik_number: ikNumber,
-            birth_date: birthDate,
-            status_field: fullStatusField,
-            signature_blob: signatureBlob,
-          },
-        ])
-        .select("id")
-        .single();
+      const pharmacyId =
+        localStorage.getItem("demo_pharmacy_id") || "d3b07384-d113-4956-a50e-a1c563e4410a";
 
-      if (data) {
+      // Save to Backend Proxy
+      const response = await fetch("/api/kiosk/consent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pharmacy_id: pharmacyId,
+          patient_name: name,
+          health_insurance_name: healthInsuranceName,
+          health_insurance_number: insuranceNumber,
+          ik_number: ikNumber,
+          ik_nummer: ikNumber, // Support backend expecting ik_nummer
+          birth_date: birthDate,
+          status_field: fullStatusField,
+          signature_blob: signatureBlob,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Failed to save consent");
+      }
+
+      const data = await response.json();
+
+      if (data && data.consent_id) {
+        setConsentId(data.consent_id);
+      } else if (data && data.id) {
         setConsentId(data.id);
       } else {
         setConsentId(crypto.randomUUID());
-      }
-
-      if (error) {
-        console.error("Failed to save consent:", error);
-        // Continue anyway in this demo if DB fails, but ideally show error
       }
 
       setStep("service");
@@ -700,29 +742,10 @@ export default function Session() {
               Bitte warten Sie, Sie werden in Kürze mit dem nächsten verfügbaren
               Arzt verbunden.
             </p>
-            <div className="w-full h-[500px] bg-slate-900 rounded-2xl overflow-hidden border-2 border-slate-200">
-              <JitsiMeeting
-                domain="meet.jit.si"
-                roomName={`ServiceApotheke-aTM-${consentId}`}
-                configOverwrite={{
-                  startWithAudioMuted: false,
-                  startWithVideoMuted: false,
-                  prejoinPageEnabled: false,
-                  disableDeepLinking: true,
-                  toolbarButtons: ["microphone", "camera"],
-                }}
-                interfaceConfigOverwrite={{
-                  DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
-                }}
-                userInfo={{
-                  displayName: name || "Patient",
-                  email: "",
-                }}
-                getIFrameRef={(iframeRef) => {
-                  iframeRef.style.height = "100%";
-                  iframeRef.style.width = "100%";
-                }}
-              />
+            <div className="w-full max-w-md bg-slate-100 p-6 rounded-2xl flex items-center justify-center border border-slate-200">
+              <p className="text-lg text-slate-500 font-mono animate-pulse">
+                Verbindung wird aufgebaut...
+              </p>
             </div>
             <Button
               className="mt-12 py-8 px-12 text-2xl bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl"

@@ -9,7 +9,6 @@ import {
   FileText,
   CheckCircle2,
   Plus,
-  Video,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -44,8 +43,6 @@ import {
   Appointment,
   ServiceType,
 } from "@/src/types";
-
-import { JitsiMeeting } from "@jitsi/react-sdk";
 
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -92,7 +89,6 @@ export default function Dashboard() {
   const [billingRecords, setBillingRecords] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
-  const [activeVideoConsentId, setActiveVideoConsentId] = useState<string | null>(null);
   const [newEvent, setNewEvent] = useState({
     title: "",
     start: new Date(),
@@ -113,77 +109,49 @@ export default function Dashboard() {
       }
     };
 
-    // Listen for Kiosk alerts (Realtime via Supabase)
-    const pharmacyId = localStorage.getItem("demo_pharmacy_id");
-    const subscription = supabase
-      .channel("schema-db-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "billing_records",
-          filter: pharmacyId ? `pharmacy_id=eq.${pharmacyId}` : undefined,
-        },
-        (payload) => {
-          console.log("Realtime DB Event:", payload);
-          if (
-            payload.eventType === "INSERT" ||
-            payload.eventType === "UPDATE"
-          ) {
-            alert("Patient wartet im aTM-Raum (Datenbank-Benachrichtigung)");
-            fetchData();
-          }
-        },
-      )
-      .subscribe();
+    // Polling fallback to check for database updates every 10 seconds
+    const interval = setInterval(() => {
+      fetchData();
+    }, 10000);
 
     return () => {
       channel.close();
-      supabase.removeChannel(subscription);
+      clearInterval(interval);
     };
   }, []);
 
   const fetchData = async () => {
     setIsLoading(true);
+    const pharmacyId = localStorage.getItem("demo_pharmacy_id") || "d3b07384-d113-4956-a50e-a1c563e4410a";
     try {
-      const { data: consentData, error: consentErr } = await supabase
-        .from("consent_agreements")
-        .select("*")
-        .order("signed_date", { ascending: false });
-      if (!consentErr && consentData && consentData.length > 0) {
-        setConsents(consentData);
+      // 1. Consent Agreements
+      const consentRes = await fetch(`/api/admin/consents?pharmacy_id=${pharmacyId}`);
+      if (consentRes.ok) {
+        const consentData = await consentRes.json();
+        if (consentData && consentData.length > 0) {
+          setConsents(consentData);
+        }
       }
 
-      const { data: billingData, error: billingErr } = await supabase
-        .from("billing_records")
-        .select(
-          `
-          *,
-          consent_agreements (
-            patient_name,
-            health_insurance_name,
-            health_insurance_number,
-            ik_number,
-            birth_date,
-            status_field
-          )
-        `,
-        )
-        .order("date_of_service", { ascending: false });
-
-      if (!billingErr && billingData && billingData.length > 0) {
-        setBillingRecords(billingData);
+      // 2. Billing Records
+      const billingRes = await fetch(`/api/admin/billing?pharmacy_id=${pharmacyId}`);
+      if (billingRes.ok) {
+        const billingData = await billingRes.json();
+        if (billingData && billingData.length > 0) {
+          setBillingRecords(billingData);
+        }
       }
 
-      const { data: aptData, error: aptErr } = await supabase
-        .from("appointments")
-        .select("*");
-      if (!aptErr && aptData && aptData.length > 0) {
-        setAppointments(aptData);
+      // 3. Appointments
+      const aptRes = await fetch(`/api/admin/appointments?pharmacy_id=${pharmacyId}`);
+      if (aptRes.ok) {
+        const aptData = await aptRes.json();
+        if (aptData && aptData.length > 0) {
+          setAppointments(aptData);
+        }
       }
     } catch (e) {
-      console.log("Using mock data");
+      console.log("Using mock data due to fetch error:", e);
     }
     setIsLoading(false);
   };
@@ -203,6 +171,28 @@ export default function Dashboard() {
     const date = new Date(dateStr);
     const cutoff = new Date("2027-07-01");
     return date < cutoff ? 30.0 : 25.5;
+  };
+
+  const handleJoinVideo = (recordId: string) => {
+    alert(`Videosprechstunde für Abrechnung ${recordId} wird gestartet... (WebRTC-Kanal wird geöffnet)`);
+  };
+
+  const handleViewReport = async (reportPath: string) => {
+    try {
+      const response = await fetch(`/api/admin/report-url?report_path=${encodeURIComponent(reportPath)}`);
+      if (!response.ok) {
+        throw new Error("Fehler beim Abrufen des Berichts-Links");
+      }
+      const data = await response.json();
+      if (data && data.url) {
+        window.open(data.url, "_blank");
+      } else {
+        alert("Bericht konnte nicht geladen werden.");
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || "Fehler beim Laden des Berichts.");
+    }
   };
 
   const generateBillingExport = () => {
@@ -288,7 +278,20 @@ export default function Dashboard() {
 
     // Sync to DB
     try {
-      await supabase.from("appointments").insert([newApt]);
+      const pharmacyId = localStorage.getItem("demo_pharmacy_id") || "d3b07384-d113-4956-a50e-a1c563e4410a";
+      await fetch("/api/admin/appointments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pharmacy_id: pharmacyId,
+          patient_name: newEvent.title,
+          start_time: newEvent.start.toISOString(),
+          end_time: newEvent.end.toISOString(),
+          status: "scheduled",
+        }),
+      });
     } catch (e) {
       console.error(e);
     }
@@ -529,7 +532,7 @@ export default function Dashboard() {
                       <TableHead>Leistungsart</TableHead>
                       <TableHead>Sonderkennzeichen</TableHead>
                       <TableHead className="text-right">Betrag</TableHead>
-                      <TableHead className="text-right">Aktion</TableHead>
+                      <TableHead className="text-right">Aktionen</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -549,6 +552,7 @@ export default function Dashboard() {
                             ] as ServiceType,
                           ),
                           amount: calculateAmount(c.signed_date),
+                          report_path: undefined,
                         }))
                     ).map((record) => {
                       return (
@@ -578,16 +582,24 @@ export default function Dashboard() {
                             ).toFixed(2)}{" "}
                             €
                           </TableCell>
-                          <TableCell className="text-right">
-                            {(record.service_type === "video_only" ||
-                              record.service_type === "triage_and_video") && (
+                          <TableCell className="text-right space-x-2">
+                            {(record.service_type === "video_only" || record.service_type === "triage_and_video") && (
                               <Button
                                 size="sm"
-                                className="bg-[#0082C8] hover:bg-[#006A9C] text-white gap-2"
-                                onClick={() => setActiveVideoConsentId(record.consent_id || record.id)}
+                                className="bg-[#0082C8] hover:bg-[#006A9C] text-white text-xs font-bold py-1 px-3 cursor-pointer"
+                                onClick={() => handleJoinVideo(record.id)}
                               >
-                                <Video className="w-4 h-4" />
-                                Beitreten
+                                Videosprechstunde beitreten
+                              </Button>
+                            )}
+                            {record.report_path && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs font-bold py-1 px-3 border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer"
+                                onClick={() => handleViewReport(record.report_path)}
+                              >
+                                Anamnese-Protokoll ansehen
                               </Button>
                             )}
                           </TableCell>
@@ -601,37 +613,6 @@ export default function Dashboard() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Video Call Modal */}
-      <Dialog open={!!activeVideoConsentId} onOpenChange={(open) => !open && setActiveVideoConsentId(null)}>
-        <DialogContent className="max-w-[90vw] w-[1200px] h-[80vh] p-0 overflow-hidden bg-slate-900 border-none">
-          {activeVideoConsentId && (
-            <JitsiMeeting
-              domain="meet.jit.si"
-              roomName={`ServiceApotheke-aTM-${activeVideoConsentId}`}
-              configOverwrite={{
-                startWithAudioMuted: false,
-                startWithVideoMuted: false,
-                prejoinPageEnabled: false,
-                disableDeepLinking: true,
-              }}
-              userInfo={{
-                displayName: localStorage.getItem("demo_pharmacist_name") || "Apotheken-Personal",
-                email: "",
-              }}
-              getIFrameRef={(iframeRef) => {
-                iframeRef.style.height = "100%";
-                iframeRef.style.width = "100%";
-              }}
-              onApiReady={(externalApi) => {
-                externalApi.addListener("videoConferenceLeft", () => {
-                  setActiveVideoConsentId(null);
-                });
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

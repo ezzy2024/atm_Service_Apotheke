@@ -1,4 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -6,17 +7,74 @@ import {
   Monitor,
   LogOut,
   Settings as SettingsIcon,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Chatbot from "@/components/Chatbot";
+import { supabase } from "@/lib/supabase";
+import OnboardingWizard from "./OnboardingWizard";
 
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const role = localStorage.getItem("demo_role") || "pharmacist";
-  const name = localStorage.getItem("demo_pharmacist_name") || "Apotheker";
+  const [role, setRole] = useState(localStorage.getItem("demo_role") || "pharmacist");
+  const [name, setName] = useState(localStorage.getItem("demo_pharmacist_name") || "Apotheker");
+  const [onboardingStatus, setOnboardingStatus] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleLogout = () => {
+  useEffect(() => {
+    checkUser();
+  }, []);
+
+  const checkUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        // Fallback for demo/stored local storage session if they exists, otherwise redirect to login
+        const storedRole = localStorage.getItem("demo_role");
+        if (storedRole) {
+          setOnboardingStatus("active");
+          setLoading(false);
+          return;
+        }
+        navigate("/login");
+        return;
+      }
+
+      // Fetch profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*, pharmacies(*)")
+        .eq("id", user.id)
+        .single();
+
+      if (profile) {
+        setRole(profile.role);
+        setName(profile.full_name);
+        localStorage.setItem("demo_role", profile.role);
+        localStorage.setItem("demo_pharmacist_name", profile.full_name);
+        localStorage.setItem("demo_pharmacy_id", profile.pharmacy_id || "");
+
+        if (profile.role === "super_admin") {
+          setOnboardingStatus("active");
+        } else if (profile.pharmacies) {
+          setOnboardingStatus(profile.pharmacies.onboarding_status);
+        } else {
+          setOnboardingStatus("active");
+        }
+      } else {
+        setOnboardingStatus("active");
+      }
+    } catch (e) {
+      console.error("Error in checkUser:", e);
+      setOnboardingStatus("active");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem("demo_pharmacy_id");
     localStorage.removeItem("demo_auth_token");
     localStorage.removeItem("demo_role");
@@ -24,9 +82,19 @@ export default function AdminLayout() {
     navigate("/login");
   };
 
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-slate-50 items-center justify-center">
+        <div className="text-slate-500 font-medium">Lade Benutzerprofil...</div>
+      </div>
+    );
+  }
+
+  const isPharmacyActive = onboardingStatus === "active";
+
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900">
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col font-sans">
         <div className="p-6 border-b border-slate-200">
           <h1 className="text-xl font-bold text-[#0082C8] tracking-tight">
             Service Apotheke
@@ -37,7 +105,8 @@ export default function AdminLayout() {
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
-          {(role === "pharmacist" || role === "pharmacy_admin") && (
+          {/* Main Dashboard Link - Only accessible if active */}
+          {(role === "pharmacist" || role === "pharmacy_admin") && isPharmacyActive && (
             <NavLink
               to="/admin/dashboard"
               className={({ isActive }) =>
@@ -49,7 +118,15 @@ export default function AdminLayout() {
             </NavLink>
           )}
 
-          {role === "pharmacy_admin" && (
+          {/* Onboarding Wizard link in sidebar if not fully active */}
+          {(role === "pharmacist" || role === "pharmacy_admin") && !isPharmacyActive && (
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium bg-[#0082C8]/10 text-[#0082C8]">
+              <Clock className="w-4 h-4" />
+              Onboarding-Status
+            </div>
+          )}
+
+          {role === "pharmacy_admin" && isPharmacyActive && (
             <NavLink
               to="/admin/settings"
               className={({ isActive }) =>
@@ -74,11 +151,11 @@ export default function AdminLayout() {
           )}
         </nav>
 
-        {(role === "pharmacist" || role === "pharmacy_admin") && (
+        {(role === "pharmacist" || role === "pharmacy_admin") && isPharmacyActive && (
           <div className="p-4 border-t border-slate-200">
             <Button
               variant="outline"
-              className="w-full flex items-center justify-start gap-2 text-slate-600"
+              className="w-full flex items-center justify-start gap-2 text-slate-600 cursor-pointer"
               onClick={() => window.open("/kiosk", "_blank")}
             >
               <Monitor className="w-4 h-4" />
@@ -89,7 +166,7 @@ export default function AdminLayout() {
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-8 justify-between shrink-0">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-8 justify-between shrink-0 font-sans">
           <h2 className="text-lg font-semibold text-slate-800">
             {role === "super_admin"
               ? "Super-Admin Dashboard"
@@ -99,14 +176,15 @@ export default function AdminLayout() {
             <div className="text-sm text-slate-500">
               Angemeldet als {role === "super_admin" ? "Super-Admin" : name}
             </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="cursor-pointer">
               <LogOut className="w-4 h-4 text-slate-500" />
             </Button>
           </div>
         </header>
 
         <div className="flex-1 overflow-auto p-8 relative">
-          <Outlet />
+          {/* Gatekeep layout content: render OnboardingWizard if not fully active */}
+          {isPharmacyActive ? <Outlet /> : <OnboardingWizard />}
         </div>
 
         {/* Persistent Chatbot for Admin */}
