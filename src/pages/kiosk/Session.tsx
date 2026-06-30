@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 type Step =
   | "consent"
   | "service"
+  | "triage-disclaimer"
   | "triage-q1"
   | "triage-q2"
   | "triage-q3"
@@ -271,33 +272,35 @@ export default function Session() {
   return (
     <div className="flex flex-col h-screen overflow-hidden relative">
       {/* Kiosk Header */}
-      <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">
-            {step === "consent"
-              ? "Schritt 1: Einverständniserklärung"
-              : step === "service"
-                ? "Schritt 2: Leistungsauswahl"
-                : step.startsWith("triage")
-                  ? "Schritt 3: Ersteinschätzungsverfahren (SmED)"
-                  : "Videosprechstunde"}
-          </h2>
-          {step.startsWith("triage-q") && (
-            <p className="text-sm font-medium text-slate-500 mt-1">
-              Schritt{" "}
-              {step === "triage-q1" ? "1" : step === "triage-q2" ? "2" : "3"}{" "}
-              von 3
-            </p>
-          )}
+      {step !== "triage-emergency" && (
+        <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">
+              {step === "consent"
+                ? "Schritt 1: Einverständniserklärung"
+                : step === "service"
+                  ? "Schritt 2: Leistungsauswahl"
+                  : step.startsWith("triage")
+                    ? "Schritt 3: Ersteinschätzungsverfahren (SmED)"
+                    : "Videosprechstunde"}
+            </h2>
+            {step.startsWith("triage-q") && (
+              <p className="text-sm font-medium text-slate-500 mt-1">
+                Schritt{" "}
+                {step === "triage-q1" ? "1" : step === "triage-q2" ? "2" : "3"}{" "}
+                von 3
+              </p>
+            )}
+          </div>
+          <Button
+            variant="destructive"
+            onClick={terminateSession}
+            className="bg-red-600 hover:bg-red-700 text-lg px-6 py-6 rounded-lg font-bold"
+          >
+            Sitzung beenden
+          </Button>
         </div>
-        <Button
-          variant="destructive"
-          onClick={terminateSession}
-          className="bg-red-600 hover:bg-red-700 text-lg px-6 py-6 rounded-lg font-bold"
-        >
-          Sitzung beenden
-        </Button>
-      </div>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-auto p-8 relative">
@@ -527,7 +530,7 @@ export default function Session() {
                   </div>
                   <Button
                     className="w-full text-lg py-6 bg-slate-100 text-slate-900 hover:bg-slate-200 mt-auto"
-                    onClick={() => setStep("triage-q1")}
+                    onClick={() => setStep("triage-disclaimer")}
                   >
                     Workflow starten
                   </Button>
@@ -572,6 +575,33 @@ export default function Session() {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {step === "triage-disclaimer" && (
+          <div className="max-w-3xl mx-auto h-full flex flex-col items-center justify-center space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-amber-50 border-2 border-amber-500 p-8 rounded-2xl w-full text-center space-y-6">
+              <AlertCircle className="w-20 h-20 text-amber-600 mx-auto" />
+              <h2 className="text-3xl font-bold text-amber-900 uppercase">Wichtiger Hinweis</h2>
+              <p className="text-xl text-amber-800 font-medium">
+                Dieses System führt keine medizinische Diagnose durch und ersetzt keinen Arztbesuch in Notfällen.
+              </p>
+              <div className="bg-white p-6 rounded-xl border border-amber-200">
+                <p className="text-lg text-slate-700">
+                  Bei akuter Lebensgefahr oder schweren Symptomen (z. B. Brustschmerzen, Atemnot, Lähmungserscheinungen) wählen Sie sofort den Notruf 112.
+                </p>
+                <p className="text-lg text-slate-700 mt-4">
+                  Die anschließende Vorfilterung dient ausschließlich der Vorbereitung des Gesprächs mit dem Apotheker.
+                </p>
+              </div>
+            </div>
+            
+            <Button
+              className="w-full bg-[#0082C8] hover:bg-[#006A9C] text-white py-8 text-xl font-bold rounded-xl"
+              onClick={() => setStep("triage-q1")}
+            >
+              Ich habe verstanden und bestätige
+            </Button>
           </div>
         )}
 
@@ -644,26 +674,14 @@ export default function Session() {
         )}
 
         {step === "triage-emergency" && (
-          <div className="max-w-3xl mx-auto h-full flex flex-col items-center justify-center space-y-8 animate-in fade-in zoom-in duration-500 text-center">
-            <div className="w-32 h-32 bg-red-100 rounded-full flex items-center justify-center animate-pulse">
-              <AlertCircle className="w-20 h-20 text-red-600" />
-            </div>
-            <h1 className="text-5xl font-black text-red-600 uppercase tracking-tight">
-              Notfallabbruch
+          <div className="fixed inset-0 z-50 bg-red-600 text-white flex flex-col items-center justify-center p-8 text-center">
+            <AlertCircle className="w-48 h-48 mb-12 animate-pulse" />
+            <h1 className="text-6xl font-black uppercase tracking-tight mb-8">
+              Akuter Notfall
             </h1>
-            <div className="bg-red-600 text-white p-8 rounded-2xl shadow-2xl">
-              <p className="text-3xl font-bold leading-relaxed">
-                NOTFALL: Bitte wenden Sie sich umgehend an das Apothekenpersonal
-                oder wählen Sie direkt die 112!
-              </p>
-            </div>
-            <Button
-              className="mt-8 py-6 px-12 text-xl border-2 border-red-600 text-red-600 hover:bg-red-50"
-              variant="outline"
-              onClick={terminateSession}
-            >
-              Sitzung beenden
-            </Button>
+            <p className="text-4xl font-bold leading-relaxed max-w-4xl">
+              Bitte rufen Sie sofort den Notruf 112 an oder wenden Sie sich direkt an das Apothekenpersonal.
+            </p>
           </div>
         )}
 

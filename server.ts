@@ -67,13 +67,24 @@ function generateAnamnesePDF(patient: any, triage: any): Promise<Buffer> {
     doc.font('Helvetica-Bold').text('Hauptbeschwerde / Symptom-Kategorie:');
     doc.font('Helvetica').text(`• ${triage.symptoms || '-'}`);
     doc.moveDown(0.8);
+
+    doc.font('Helvetica-Bold').text('Warnhinweise (Red Flags) geprüft:');
+    doc.font('Helvetica').text(`• Keine akute Vitalgefährdung gemeldet (Frage 2 negativ)`);
+    doc.moveDown(0.8);
     
     doc.font('Helvetica-Bold').text('Dauer der Beschwerden:');
     doc.font('Helvetica').text(`• ${triage.duration || '-'}`);
     doc.moveDown(0.8);
     
-    doc.font('Helvetica-Bold').text('Dringlichkeitseinstufung:');
+    doc.font('Helvetica-Bold').text('Dringlichkeitseinstufung (Vorfilterung):');
     doc.font('Helvetica').text(`• ${triage.urgency || '-'}`);
+    doc.moveDown(2);
+
+    // Disclaimer Logging
+    doc.fillColor(primaryColor).font('Helvetica-Bold').fontSize(12).text('Rechtliche Hinweise & Disclaimer', { underline: false });
+    doc.moveDown(0.8);
+    doc.fillColor(textColor).fontSize(10).font('Helvetica');
+    doc.text('Der Patient hat am Kiosk-Terminal aktiv per Klick bestätigt, dass das System keine medizinische Diagnose durchführt und keinen Arztbesuch in Notfällen ersetzt. Der Patient wurde angewiesen, bei akuter Lebensgefahr die 112 zu wählen.');
     doc.moveDown(2);
 
     // Footer
