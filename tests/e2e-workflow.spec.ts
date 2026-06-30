@@ -9,6 +9,20 @@ test('Automatisierter Kiosk-Triage und Export-Workflow', async ({ page }) => {
   await page.click('text=eGK Einlesen'); 
   // Wait for mock read to complete (2 seconds)
   await page.waitForTimeout(2500);
+
+  // Fulfill form validation requirements
+  await page.click('text=Ich verfüge über kein geeignetes digitales Endgerät');
+  
+  // Draw signature
+  const canvas = page.locator('canvas');
+  const box = await canvas.boundingBox();
+  if (box) {
+    await page.mouse.move(box.x + 10, box.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 50, box.y + 50);
+    await page.mouse.up();
+  }
+
   await page.click('text=Zustimmen & Fortfahren');
 
   // Service Selection
