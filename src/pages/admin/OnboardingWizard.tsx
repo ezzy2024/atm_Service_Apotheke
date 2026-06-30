@@ -5,6 +5,8 @@ import { Upload, FileText, CheckCircle2, Clock, AlertTriangle, LogOut } from "lu
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 
+import { trackEvent } from "@/src/lib/analytics";
+
 export default function OnboardingWizard() {
   const navigate = useNavigate();
   const [pharmacy, setPharmacy] = useState<any>(null);
@@ -13,6 +15,7 @@ export default function OnboardingWizard() {
 
   useEffect(() => {
     fetchPharmacyData();
+    trackEvent('funnel_step', { step: 'registration_started' });
   }, []);
 
   const fetchPharmacyData = async () => {
@@ -46,6 +49,13 @@ export default function OnboardingWizard() {
         localStorage.setItem("demo_pharmacy_id", pharm.id);
         localStorage.setItem("demo_role", "pharmacy_admin");
         localStorage.setItem("demo_pharmacist_name", pharm.name);
+
+        // Track state-based funnel events
+        if (pharm.onboarding_status === 'pending_approval') {
+          trackEvent('funnel_step', { step: 'data_entry_completed' });
+        } else if (pharm.onboarding_status === 'pending_verification') {
+          trackEvent('funnel_complete', { action: 'onboarding_success' });
+        }
       }
     } catch (e) {
       console.error(e);
@@ -82,6 +92,7 @@ export default function OnboardingWizard() {
           throw new Error("Dateiupload fehlgeschlagen");
         }
 
+        trackEvent('funnel_step', { step: 'document_upload', doc_type: docType });
         alert("Dokument erfolgreich hochgeladen!");
         fetchPharmacyData();
       };
