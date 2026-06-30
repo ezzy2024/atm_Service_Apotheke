@@ -272,7 +272,7 @@ export default function Session() {
   return (
     <div className="flex flex-col h-screen overflow-hidden relative">
       {/* Kiosk Header */}
-      {step !== "triage-emergency" && (
+      {step !== "triage-emergency" && step !== "video" && (
         <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
           <div>
             <h2 className="text-xl font-bold text-slate-800">
@@ -280,9 +280,7 @@ export default function Session() {
                 ? "Schritt 1: Einverständniserklärung"
                 : step === "service"
                   ? "Schritt 2: Leistungsauswahl"
-                  : step.startsWith("triage")
-                    ? "Schritt 3: Ersteinschätzungsverfahren (SmED)"
-                    : "Videosprechstunde"}
+                  : "Schritt 3: Ersteinschätzungsverfahren (SmED)"}
             </h2>
             {step.startsWith("triage-q") && (
               <p className="text-sm font-medium text-slate-500 mt-1">

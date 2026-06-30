@@ -112,8 +112,8 @@ function generateAnamnesePDF(patient: any, triage: any): Promise<Buffer> {
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT || 4000;
-
+  let PORT = parseInt(process.env.PORT || "4000", 10);
+  
   app.use(express.json({ limit: "50mb" }));
 
   // Initialize Gemini AI
@@ -978,15 +978,30 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    // For React Router fallback
+    // Fallback for SPA routing - must be LAST
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    logger.info(`Server running on http://localhost:${PORT}`);
-  });
+  const startListening = (port: number) => {
+    const server = app.listen(port, "0.0.0.0", () => {
+      logger.info(`Server running on http://localhost:${port}`);
+    });
+
+    server.on('error', (e: any) => {
+      if (e.code === 'EADDRINUSE') {
+        logger.warn(`Port ${port} is in use, trying ${port + 1}...`);
+        setTimeout(() => {
+          startListening(port + 1);
+        }, 100);
+      } else {
+        logger.error(`Server error: ${e.message}`);
+      }
+    });
+  };
+
+  startListening(PORT);
 }
 
 startServer();
