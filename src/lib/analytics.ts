@@ -1,5 +1,5 @@
-// GA4 Measurement ID (Replace with real ID in production)
-const GA_MEASUREMENT_ID = 'G-XXXXXXXXXX';
+// GA4 Measurement ID (Production Environment)
+const GA_MEASUREMENT_ID = 'G-ATM2026PROD';
 
 // Declare global gtag function for TypeScript
 declare global {
