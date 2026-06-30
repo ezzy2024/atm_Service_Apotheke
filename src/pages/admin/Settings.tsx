@@ -136,13 +136,29 @@ export default function Settings() {
               </div>
             </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex justify-between items-center">
             <Button
               onClick={handleSaveAVV}
               className="bg-[#0082C8] hover:bg-[#006A9C] text-white"
             >
               {isSaved ? "Gespeichert!" : "Daten & AVV speichern"}
             </Button>
+            
+            {avvSavedDate && (
+              <Button
+                variant="outline"
+                className="gap-2 border-[#0082C8] text-[#0082C8] hover:bg-[#0082C8]/10"
+                onClick={() => {
+                  const pharmacyId = localStorage.getItem("demo_pharmacy_id");
+                  if (pharmacyId) {
+                    window.open(`/api/admin/audit-log/${pharmacyId}`, "_blank");
+                  }
+                }}
+              >
+                <FileText className="w-4 h-4" />
+                DSGVO-Verfahrensverzeichnis (PDF) laden
+              </Button>
+            )}
           </CardFooter>
         </Card>
 

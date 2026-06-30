@@ -718,6 +718,88 @@ async function startServer() {
     }
   });
 
+  // Billing Export Endpoint (NNF / ARZ Format)
+  app.get("/api/admin/billing/export/:pharmacy_id", async (req, res) => {
+    try {
+      const { pharmacy_id } = req.params;
+      const { month } = req.query; // format: YYYY-MM
+      
+      if (!month || typeof month !== 'string') {
+        return res.status(400).json({ error: "Month parameter (YYYY-MM) is required" });
+      }
+
+      const startDate = `${month}-01`;
+      // Get the last day of the month by going to the first day of the next month and subtracting one day
+      const nextMonth = new Date(startDate);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      const endDate = nextMonth.toISOString().split('T')[0];
+
+      // Fetch the pharmacy details for the IK number
+      const { data: pharmacy, error: pharmErr } = await supabaseAdmin
+        .from("pharmacies")
+        .select("ik_number")
+        .eq("id", pharmacy_id)
+        .single();
+
+      if (pharmErr) {
+        return res.status(500).json({ error: "Pharmacy not found" });
+      }
+
+      // Fetch all billing records for the given month
+      const { data: records, error: recordsErr } = await supabaseAdmin
+        .from("billing_records")
+        .select("*")
+        .eq("pharmacy_id", pharmacy_id)
+        .gte("date_of_service", startDate)
+        .lt("date_of_service", endDate);
+
+      if (recordsErr) {
+        return res.status(500).json({ error: recordsErr.message });
+      }
+
+      // Aggregate records by Sonderkennzeichen
+      const aggregation: Record<string, { count: number; total_amount: number; single_amount: number }> = {};
+
+      records.forEach(record => {
+        const skz = record.sonderkennzeichen;
+        if (!aggregation[skz]) {
+          aggregation[skz] = {
+            count: 0,
+            total_amount: 0,
+            single_amount: Number(record.amount)
+          };
+        }
+        aggregation[skz].count += 1;
+        aggregation[skz].total_amount += Number(record.amount);
+      });
+
+      // Build ARZ/NNF compliant JSON structure
+      const exportData = {
+        Abrechnungs_Metadaten: {
+          IK_Apotheke: pharmacy.ik_number,
+          Abrechnungsmonat: month,
+          Erstellungsdatum: new Date().toISOString(),
+          Empfaenger: "Nacht- und Notdienstfonds (NNF) / ARZ",
+          Format_Version: "1.0-aTM"
+        },
+        Leistungsdatensaetze: Object.entries(aggregation).map(([skz, data]) => ({
+          Sonderkennzeichen: skz,
+          Bezeichnung: skz === "19816342" ? "Kombileistung (Ersteinschätzung + Video)" : 
+                       skz === "19816313" ? "Nur Ersteinschätzung" : "Nur Videosprechstunde",
+          Anzahl_Leistungen: data.count,
+          Verguetung_Einzel_EUR: data.single_amount.toFixed(2),
+          Verguetung_Gesamt_EUR: data.total_amount.toFixed(2)
+        })),
+        Gesamtsumme_EUR: Object.values(aggregation).reduce((sum, d) => sum + d.total_amount, 0).toFixed(2)
+      };
+
+      res.json(exportData);
+    } catch (error: any) {
+      console.error("Billing export error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Chatbot Endpoint
   app.post("/api/chat", async (req, res) => {
     try {
@@ -786,6 +868,78 @@ async function startServer() {
     } catch (error: any) {
       console.error("Gemini Error:", error);
       res.status(500).json({ error: error.message || "Failed to analyze image" });
+    }
+  });
+
+  // DSGVO Audit Log PDF Generator
+  app.get("/api/admin/audit-log/:pharmacy_id", async (req, res) => {
+    try {
+      const { pharmacy_id } = req.params;
+      
+      const { data: pharmacy, error: pharmErr } = await supabaseAdmin
+        .from("pharmacies")
+        .select("*")
+        .eq("id", pharmacy_id)
+        .single();
+
+      if (pharmErr || !pharmacy) {
+        return res.status(404).json({ error: "Pharmacy not found" });
+      }
+
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ margin: 50 });
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=DSGVO_Audit_Log_${pharmacy.ik_number || 'Apotheke'}.pdf`);
+      
+      doc.pipe(res);
+      
+      // Header
+      doc.fontSize(20).text('Verfahrensverzeichnis nach Art. 30 DSGVO', { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(14).text('Telepharmazie & Assistierte Telemedizin (aTM)', { align: 'center' });
+      doc.moveDown(2);
+      
+      // Pharmacy details
+      doc.fontSize(12).font('Helvetica-Bold').text('1. Verantwortliche Stelle (Apotheke)');
+      doc.font('Helvetica').text(`Name: ${pharmacy.name}`);
+      doc.text(`IK-Nummer: ${pharmacy.ik_number || 'Nicht hinterlegt'}`);
+      doc.text(`BSNR: ${pharmacy.bsnr || 'Nicht hinterlegt'}`);
+      doc.text(`Datum der Erstellung: ${new Date().toLocaleDateString('de-DE')}`);
+      doc.moveDown();
+
+      // DSGVO descriptions
+      doc.font('Helvetica-Bold').text('2. Beschreibung der Verarbeitungstätigkeiten');
+      doc.font('Helvetica').text('Zweck: Durchführung von Ersteinschätzungen und Videosprechstunden im Rahmen der assistierten Telemedizin gemäß § 129 SGB V.');
+      doc.text('Rechtsgrundlage: Art. 6 Abs. 1 lit. a (Einwilligung), Art. 9 Abs. 2 lit. a DSGVO.');
+      doc.moveDown();
+
+      doc.font('Helvetica-Bold').text('3. Kategorien betroffener Personen');
+      doc.font('Helvetica').text('Patienten der Apotheke, die telemedizinische Leistungen in Anspruch nehmen.');
+      doc.moveDown();
+
+      doc.font('Helvetica-Bold').text('4. Kategorien personenbezogener Daten');
+      doc.font('Helvetica').text('- Stammdaten (Name, Geburtsdatum, KVNR)');
+      doc.text('- Gesundheitsdaten (Triage-Ergebnisse, Video-Stream)');
+      doc.text('- Abrechnungsdaten (Sonderkennzeichen, Zeitstempel)');
+      doc.moveDown();
+
+      doc.font('Helvetica-Bold').text('5. Technische und organisatorische Maßnahmen (TOMs)');
+      doc.font('Helvetica').text('- Die Videosprechstunde erfolgt über eine Ende-zu-Ende verschlüsselte WebRTC/Jitsi-Infrastruktur.');
+      doc.text('- Es erfolgt KEINE serverseitige Aufzeichnung der Videostreams.');
+      doc.text('- Zugriff auf das Apotheken-Dashboard ist durch rollenbasierte Autorisierung (Supabase Auth) und RLS (Row Level Security) geschützt.');
+      doc.moveDown();
+
+      doc.font('Helvetica-Bold').text('6. Löschfristen');
+      doc.font('Helvetica').text('Einverständniserklärungen (AVV) sowie Abrechnungsdaten werden gemäß gesetzlicher Vorgaben für 4 Jahre (retention_expires_at) verschlüsselt aufbewahrt und danach automatisiert vernichtet.');
+      doc.moveDown(2);
+
+      doc.fontSize(10).fillColor('gray').text('Dieses Dokument wurde maschinell generiert und entspricht den Anforderungen der Landesapothekerkammern (LAK) für die digitale Vor-Ort-Versorgung.', { align: 'center' });
+
+      doc.end();
+    } catch (error: any) {
+      console.error("Audit log error:", error);
+      res.status(500).json({ error: error.message });
     }
   });
 

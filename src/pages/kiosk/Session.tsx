@@ -23,12 +23,14 @@ type Step =
   | "video";
 
 import { ServiceType } from "@/src/types";
+import { tiService } from "@/src/lib/ti-service";
 
 export default function Session() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("consent");
   const [consentId, setConsentId] = useState<string>("");
+  const [isReadingCard, setIsReadingCard] = useState(false);
 
   // Triage State
   const [triageCategory, setTriageCategory] = useState("");
@@ -50,6 +52,24 @@ export default function Session() {
   const [needsHelp, setNeedsHelp] = useState(false);
 
   const sigCanvas = useRef<SignatureCanvas>(null);
+
+  const handleReadEgk = async () => {
+    try {
+      setIsReadingCard(true);
+      const cardData = await tiService.readPatientCard("terminal-1");
+      setName(`${cardData.firstName} ${cardData.lastName}`);
+      setBirthDate(cardData.birthDate);
+      setHealthInsuranceName(cardData.healthInsurance);
+      setInsuranceNumber(cardData.kvnr);
+      setIkNumber(cardData.ikNumber.substring(0, 9)); // Max 9 chars
+      setStatusField5("10000"); // Mock status field
+    } catch (error) {
+      console.error("Fehler beim eGK Einlesen:", error);
+      alert("Kartenlesefehler.");
+    } finally {
+      setIsReadingCard(false);
+    }
+  };
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -300,10 +320,21 @@ export default function Session() {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="flex justify-between items-center mb-2">
               <h3 className="font-semibold text-slate-800 text-lg">
                 Patientendaten
               </h3>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleReadEgk}
+                disabled={isReadingCard}
+                className="gap-2 border-[#0082C8] text-[#0082C8] hover:bg-[#0082C8]/10"
+              >
+                {isReadingCard ? "Lese eGK..." : "eGK Einlesen"}
+              </Button>
+            </div>
+            <div className="space-y-4">
               <input
                 type="text"
                 placeholder="Vollständiger Name"

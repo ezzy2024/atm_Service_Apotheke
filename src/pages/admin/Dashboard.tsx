@@ -198,53 +198,35 @@ export default function Dashboard() {
     }
   };
 
-  const generateBillingExport = () => {
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent +=
-      "Apotheken_IK,BSNR,Krankenkasse,KVNR,Status,Sonderkennzeichen,Datum,Betrag,Ausfuehrender_Apotheker\n";
-
-    const recordsToExport =
-      billingRecords.length > 0
-        ? billingRecords
-        : agreements.map((c) => ({
-            consent_agreements: c,
-            service_type: "triage_only",
-            date_of_service: c.signed_date,
-            sonderkennzeichen: getSonderkennzeichen("triage_only"),
-            amount: calculateAmount(c.signed_date),
-            executed_by_pharmacist_name:
-              localStorage.getItem("demo_pharmacist_name") || "Apotheker",
-          }));
-
-    recordsToExport.forEach((record: any) => {
-      const consent = record.consent_agreements;
-      const dateStr = record.date_of_service
-        ? format(new Date(record.date_of_service), "dd.MM.yyyy")
-        : "";
-
-      const ikApo = "123456789"; // Dummy Apotheke IK
-      const bsnr = "000000000";
-      const ikKk = consent?.ik_number || "";
-      const kvnr = consent?.health_insurance_number || "";
-      const status = consent?.status_field || "0000083";
-      const sk =
-        record.sonderkennzeichen || getSonderkennzeichen(record.service_type);
-      const amount = record.amount || calculateAmount(record.date_of_service);
-      const pharmacist = record.executed_by_pharmacist_name || "";
-
-      csvContent += `${ikApo},${bsnr},${ikKk},${kvnr},${status},${sk},${dateStr},${amount.toFixed(2)},${pharmacist}\n`;
-    });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `TA3_Sonderbeleg_${format(new Date(), "yyyyMMdd")}.csv`,
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const generateBillingExport = async () => {
+    try {
+      setIsLoading(true);
+      const pharmacyId = localStorage.getItem("demo_pharmacy_id") || "d3b07384-d113-4956-a50e-a1c563e4410a";
+      const currentMonth = format(new Date(), "yyyy-MM");
+      
+      const res = await fetch(`/api/admin/billing/export/${pharmacyId}?month=${currentMonth}`);
+      if (!res.ok) {
+        throw new Error("Fehler beim Erstellen der Abrechnung.");
+      }
+      
+      const jsonData = await res.json();
+      
+      // Download as JSON file
+      const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: "application/json" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.setAttribute("hidden", "");
+      a.setAttribute("href", url);
+      a.setAttribute("download", `NNF_Abrechnung_${jsonData.Abrechnungs_Metadaten?.IK_Apotheke}_${currentMonth}.json`);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || "Export fehlgeschlagen.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSelectSlot = (selectInfo: any) => {
