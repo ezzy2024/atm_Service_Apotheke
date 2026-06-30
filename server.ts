@@ -5,8 +5,22 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import PDFDocument from "pdfkit";
+import winston from "winston";
 
 dotenv.config();
+
+const logger = winston.createLogger({
+  level: "info",
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: "error.log", level: "error" }),
+    new winston.transports.File({ filename: "system-events.log" })
+  ]
+});
 
 function generateAnamnesePDF(patient: any, triage: any): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -128,7 +142,7 @@ async function startServer() {
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseServiceKey) {
-    console.warn("WARNING: SUPABASE_SERVICE_ROLE_KEY is missing from environment variables.");
+    logger.warn("WARNING: SUPABASE_SERVICE_ROLE_KEY is missing from environment variables.");
   }
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || "dummy-key");
@@ -163,13 +177,13 @@ async function startServer() {
         .single();
 
       if (error) {
-        console.error("Error inserting consent agreement:", error);
+        logger.error("Error inserting consent agreement:", error);
         return res.status(500).json({ error: error.message });
       }
       
       res.status(200).json({ success: true, consent_id: data.id });
     } catch (error: any) {
-      console.error("Server error inserting consent agreement:", error);
+      logger.error("Server error inserting consent agreement:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -211,13 +225,13 @@ async function startServer() {
         .single();
 
       if (error) {
-        console.error("Error inserting billing record:", error);
+        logger.error("Error inserting billing record:", error);
         return res.status(500).json({ error: error.message });
       }
       
       res.status(200).json({ success: true, billing_id: data.id });
     } catch (error: any) {
-      console.error("Server error inserting billing record:", error);
+      logger.error("Server error inserting billing record:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -239,7 +253,7 @@ async function startServer() {
         .single();
 
       if (patientErr || !patient) {
-        console.error('Error fetching patient for report:', patientErr);
+        logger.error('Error fetching patient for report:', patientErr);
         return res.status(404).json({ error: 'Einverständniserklärung nicht gefunden' });
       }
 
@@ -261,7 +275,7 @@ async function startServer() {
         });
 
       if (uploadErr) {
-        console.error('Error uploading clinical report:', uploadErr);
+        logger.error('Error uploading clinical report:', uploadErr);
         return res.status(500).json({ error: `Upload fehlgeschlagen: ${uploadErr.message}` });
       }
 
@@ -273,14 +287,14 @@ async function startServer() {
           .eq('id', billing_id);
 
         if (updateErr) {
-          console.error('Error linking report to billing record:', updateErr);
+          logger.error('Error linking report to billing record:', updateErr);
           // Don't fail the request, since the PDF was uploaded successfully
         }
       }
 
       res.status(200).json({ success: true, file_path: filePath });
     } catch (error: any) {
-      console.error('Server error generating clinical report:', error);
+      logger.error('Server error generating clinical report:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -319,7 +333,7 @@ async function startServer() {
         .createSignedUrl(report_path as string, 300); // 5 minutes expiry
 
       if (error) {
-        console.error("Error creating signed URL:", error);
+        logger.error("Error creating signed URL:", error);
         return res.status(500).json({ error: error.message });
       }
 
@@ -498,7 +512,7 @@ async function startServer() {
         .single();
 
       if (pharmacyErr || !pharmacy) {
-        console.error("Error creating pharmacy:", pharmacyErr);
+        logger.error("Error creating pharmacy:", pharmacyErr);
         return res.status(500).json({ error: `Apothekenerstellung fehlgeschlagen: ${pharmacyErr?.message}` });
       }
 
@@ -518,7 +532,7 @@ async function startServer() {
       });
 
       if (authErr || !authUser?.user) {
-        console.error("Error creating auth user:", authErr);
+        logger.error("Error creating auth user:", authErr);
         // Rollback: Delete created pharmacy to maintain consistency
         await supabaseAdmin.from("pharmacies").delete().eq("id", pharmacy.id);
         return res.status(500).json({ error: `Benutzererstellung fehlgeschlagen: ${authErr?.message}` });
@@ -537,7 +551,7 @@ async function startServer() {
         ]);
 
       if (profileErr) {
-        console.error("Error creating profile:", profileErr);
+        logger.error("Error creating profile:", profileErr);
         // Rollback: Delete auth user and pharmacy
         await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
         await supabaseAdmin.from("pharmacies").delete().eq("id", pharmacy.id);
@@ -546,7 +560,7 @@ async function startServer() {
 
       res.status(201).json({ success: true, pharmacy_id: pharmacy.id, user_id: authUser.user.id });
     } catch (error: any) {
-      console.error("Server error in register-b2b:", error);
+      logger.error("Server error in register-b2b:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -576,7 +590,7 @@ async function startServer() {
         });
 
       if (uploadErr) {
-        console.error('Error uploading pharmacy document:', uploadErr);
+        logger.error('Error uploading pharmacy document:', uploadErr);
         return res.status(500).json({ error: `Upload fehlgeschlagen: ${uploadErr.message}` });
       }
 
@@ -618,13 +632,13 @@ async function startServer() {
         .eq('id', pharmacy_id);
 
       if (updateErr) {
-        console.error('Error updating pharmacy doc status:', updateErr);
+        logger.error('Error updating pharmacy doc status:', updateErr);
         return res.status(500).json({ error: updateErr.message });
       }
 
       res.status(200).json({ success: true, file_path: filePath, next_status: updateFields.onboarding_status });
     } catch (error: any) {
-      console.error('Server error uploading document:', error);
+      logger.error('Server error uploading document:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -642,7 +656,7 @@ async function startServer() {
         .createSignedUrl(report_path as string, 300); // 5 minutes expiry
 
       if (error) {
-        console.error("Error creating signed URL for document:", error);
+        logger.error("Error creating signed URL for document:", error);
         return res.status(500).json({ error: error.message });
       }
 
@@ -670,7 +684,7 @@ async function startServer() {
       });
 
       if (error) {
-        console.error("Error inviting user:", error);
+        logger.error("Error inviting user:", error);
         return res.status(500).json({ error: error.message });
       }
 
@@ -688,14 +702,14 @@ async function startServer() {
           ]);
         
         if (profileErr) {
-          console.error("Error creating profile for invited user:", profileErr);
+          logger.error("Error creating profile for invited user:", profileErr);
           // Non-fatal error, the invite was still sent
         }
       }
 
       res.status(200).json({ success: true, user: data.user });
     } catch (error: any) {
-      console.error("Server error inviting user:", error);
+      logger.error("Server error inviting user:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -806,7 +820,7 @@ async function startServer() {
 
       res.json(exportData);
     } catch (error: any) {
-      console.error("Billing export error:", error);
+      logger.error("Billing export error:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -844,7 +858,7 @@ async function startServer() {
 
       res.json({ text: response.text });
     } catch (error: any) {
-      console.error("Gemini Error:", error);
+      logger.error("Gemini Error:", error);
       res.status(500).json({ error: error.message || "Failed to generate response" });
     }
   });
@@ -877,7 +891,7 @@ async function startServer() {
 
       res.json({ text: response.text });
     } catch (error: any) {
-      console.error("Gemini Error:", error);
+      logger.error("Gemini Error:", error);
       res.status(500).json({ error: error.message || "Failed to analyze image" });
     }
   });
@@ -949,7 +963,7 @@ async function startServer() {
 
       doc.end();
     } catch (error: any) {
-      console.error("Audit log error:", error);
+      logger.error("Audit log error:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -971,7 +985,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    logger.info(`Server running on http://localhost:${PORT}`);
   });
 }
 
