@@ -653,7 +653,7 @@ export default function Dashboard() {
             {activeVideoCall && (
               <iframe
                 allow="camera; microphone; display-capture; autoplay; clipboard-write"
-                src={`https://meet.jit.si/atm-service-apotheke-${activeVideoCall}#config.defaultLanguage='ar'&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.prejoinPageEnabled=false&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.SHOW_CHROME_EXTENSION_BANNER=false&userInfo.displayName=Apotheke`}
+                src={`https://meet.jit.si/atm-service-apotheke-${activeVideoCall}#config.defaultLanguage=ar&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.prejoinPageEnabled=false&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.SHOW_CHROME_EXTENSION_BANNER=false&userInfo.displayName=Apotheke`}
                 style={{ width: "100%", height: "100%", border: 0 }}
                 title="Videosprechstunde"
               />

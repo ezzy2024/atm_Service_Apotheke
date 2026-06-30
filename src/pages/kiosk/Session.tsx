@@ -749,7 +749,7 @@ export default function Session() {
             <div className="flex-1 bg-black rounded-2xl overflow-hidden border-4 border-slate-200">
               <iframe
                 allow="camera; microphone; display-capture; autoplay; clipboard-write"
-                src={`https://meet.jit.si/atm-service-apotheke-${consentId}#config.defaultLanguage='ar'&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.prejoinPageEnabled=false&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.SHOW_CHROME_EXTENSION_BANNER=false&userInfo.displayName=${encodeURIComponent(name || "Patient")}`}
+                src={`https://meet.jit.si/atm-service-apotheke-${consentId}#config.defaultLanguage=ar&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.prejoinPageEnabled=false&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.SHOW_CHROME_EXTENSION_BANNER=false&userInfo.displayName=${encodeURIComponent(name || "Patient")}`}
                 style={{ width: "100%", height: "100%", border: 0 }}
                 title="Videosprechstunde"
               />
