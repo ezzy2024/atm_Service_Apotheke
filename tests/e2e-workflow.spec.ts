@@ -2,9 +2,10 @@ import { test, expect } from '@playwright/test';
 
 test('Automatisierter Kiosk-Triage und Export-Workflow', async ({ page }) => {
   // 1. Kiosk Flow
+  await page.addInitScript(() => {
+    window.localStorage.setItem('atm_cookie_consent', 'granted');
+  });
   await page.goto('http://localhost:3000/kiosk/session/demo-session-1234');
-  
-  // Consent
   await page.click('text=eGK Einlesen'); 
   // Wait for mock read to complete (2 seconds)
   await page.waitForTimeout(2500);
@@ -35,6 +36,7 @@ test('Automatisierter Kiosk-Triage und Export-Workflow', async ({ page }) => {
   await page.goto('http://localhost:3000/');
   await page.addInitScript(() => {
     window.localStorage.setItem('demo_pharmacy_id', 'test-pharmacy-uuid');
+    window.localStorage.setItem('atm_cookie_consent', 'granted');
     // Inject Supabase session object if route guards depend on it
     window.localStorage.setItem('sb-tngpemwxwkwazijgivjn-auth-token', JSON.stringify({
       access_token: 'test-token',
