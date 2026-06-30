@@ -5,7 +5,7 @@ test('Automatisierter Kiosk-Triage und Export-Workflow', async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem('atm_cookie_consent', 'granted');
   });
-  await page.goto('http://localhost:3000/kiosk/session/demo-session-1234');
+  await page.goto('http://localhost:4000/kiosk/session/demo-session-1234');
   await page.click('text=eGK Einlesen'); 
   // Wait for mock read to complete (2 seconds)
   await page.waitForTimeout(2500);
@@ -47,7 +47,7 @@ test('Automatisierter Kiosk-Triage und Export-Workflow', async ({ page }) => {
   await expect(page.locator('text=Verbindung wird aufgebaut')).toBeVisible();
 
   // 3. Admin Backend Verifikation (Bypass Login)
-  await page.goto('http://localhost:3000/');
+  await page.goto('http://localhost:4000/');
   await page.addInitScript(() => {
     window.localStorage.setItem('demo_pharmacy_id', 'test-pharmacy-uuid');
     window.localStorage.setItem('atm_cookie_consent', 'granted');
@@ -59,7 +59,7 @@ test('Automatisierter Kiosk-Triage und Export-Workflow', async ({ page }) => {
   });
   
   // Navigate to Dashboard
-  await page.goto('http://localhost:3000/admin/dashboard');
+  await page.goto('http://localhost:4000/admin/dashboard');
   
   // 4. Export Trigger Test
   // Wait for the Dashboard to load and verify UI elements
