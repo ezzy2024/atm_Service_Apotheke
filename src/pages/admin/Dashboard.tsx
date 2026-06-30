@@ -651,29 +651,11 @@ export default function Dashboard() {
           </DialogHeader>
           <div className="flex-1 w-full relative bg-black mt-2">
             {activeVideoCall && (
-              <JitsiMeeting
-                roomName={`atm-service-apotheke-${activeVideoCall}`}
-                configOverwrite={{
-                  startWithAudioMuted: false,
-                  startWithVideoMuted: false,
-                  disableModeratorIndicator: true,
-                  enableEmailInStats: false,
-                  prejoinPageEnabled: false,
-                }}
-                interfaceConfigOverwrite={{
-                  DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
-                  SHOW_CHROME_EXTENSION_BANNER: false,
-                }}
-                userInfo={{
-                  displayName: "Apotheker",
-                  email: "apotheke@serviceapotheke.tech"
-                }}
-                getIFrameRef={(iframeRef) => {
-                  if (iframeRef) {
-                    iframeRef.style.height = "100%";
-                    iframeRef.style.width = "100%";
-                  }
-                }}
+              <iframe
+                allow="camera; microphone; display-capture; autoplay; clipboard-write"
+                src={`https://meet.jit.si/atm-service-apotheke-${activeVideoCall}#config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.prejoinPageEnabled=false&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.SHOW_CHROME_EXTENSION_BANNER=false&userInfo.displayName=Apotheke`}
+                style={{ width: "100%", height: "100%", border: 0 }}
+                title="Videosprechstunde"
               />
             )}
           </div>
