@@ -1,0 +1,5 @@
+name: serviceapotheke-api-http-redirect
+defaultUrlRedirect:
+  redirectResponseCode: MOVED_PERMANENTLY_DEFAULT
+  httpsRedirect: True
+  stripQuery: False

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="de" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServiceApotheke – Das Betriebssystem für moderne Apotheken</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="Service Apotheke.png">
+    <style>
+        :root {
+            --primary: #0f2942;
+            --primary-light: #e6f0fa;
+            --accent: #c6a87c;
+            --secondary: #2f855a;
+            --text-main: #2d3748;
+            --text-muted: #718096;
+            --bg-body: #f8fafc;
+            --border-light: #e2e8f0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; line-height: 1.6; color: var(--text-main); background-color: var(--bg-body); overflow-x: hidden; }
+        h1, h2, h3 { font-family: 'Merriweather', serif; color: var(--primary); }
+        
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        
+        /* Header */
+        header { background-color: rgba(255, 255, 255, 0.98); backdrop-filter: blur(10px); box-shadow: 0 1px 3px rgba(0,0,0,0.05); position: fixed; width: 100%; top: 0; z-index: 1000; border-bottom: 1px solid var(--border-light); }
+        .header-content { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; }
+        .logo { display: flex; align-items: center; text-decoration: none; gap: 10px; font-family: 'Merriweather', serif; font-size: 20px; font-weight: 700; color: var(--primary); }
+        .logo i { font-size: 28px; color: var(--accent); }
+        
+        nav ul { display: flex; list-style: none; gap: 30px; align-items: center; }
+        nav a { text-decoration: none; color: var(--text-muted); font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; transition: color 0.2s; }
+        nav a:hover { color: var(--primary); }
+        .nav-cta { background-color: var(--primary); color: white; padding: 10px 24px; border-radius: 6px; transition: background 0.2s; }
+        .nav-cta:hover { background-color: #173d61; color: white; }
+        .user-icon { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--primary); font-weight: 600; padding: 8px 15px; border-radius: 6px; background-color: var(--primary-light); }
+        
+        /* Hero */
+        .hero { padding: 180px 0 100px; background: linear-gradient(135deg, #ffffff 0%, var(--primary-light) 100%); text-align: center; position: relative; }
+        .hero-badge { display: inline-block; background-color: white; border: 1px solid var(--border-light); color: var(--primary); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .hero-title { font-size: 54px; font-weight: 900; line-height: 1.2; margin-bottom: 20px; max-width: 900px; margin-left: auto; margin-right: auto; }
+        .hero-subtitle { font-size: 18px; color: var(--text-muted); margin-bottom: 40px; max-width: 600px; margin-left: auto; margin-right: auto; }
+        .hero-buttons { display: flex; gap: 20px; justify-content: center; }
+        
+        .btn { padding: 16px 32px; border-radius: 6px; font-weight: 600; font-size: 15px; cursor: pointer; transition: all 0.2s; border: none; display: flex; align-items: center; gap: 10px; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px; justify-content: center; }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: #173d61; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(15, 41, 66, 0.2); }
+        .btn-secondary { background-color: white; color: var(--primary); border: 1px solid var(--border-light); }
+        .btn-secondary:hover { border-color: var(--primary); transform: translateY(-2px); }
+
+        /* Trust Banner */
+        .trust-banner { border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); padding: 30px 0; background: white; text-align: center; }
+        .trust-grid { display: flex; justify-content: center; gap: 50px; flex-wrap: wrap; color: var(--text-muted); font-weight: 500; font-size: 15px; }
+        .trust-grid span { display: flex; align-items: center; gap: 10px; }
+        .trust-grid i { color: var(--secondary); font-size: 18px; }
+
+        /* Products Section */
+        .products-section { padding: 100px 0; background-color: var(--bg-body); }
+        .section-header { text-align: center; margin-bottom: 60px; }
+        .section-title { font-size: 36px; font-weight: 900; margin-bottom: 15px; }
+        .section-subtitle { font-size: 18px; color: var(--text-muted); max-width: 700px; margin: 0 auto; }
+
+        .product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
+        .product-card { background: white; border-radius: 12px; border: 1px solid var(--border-light); overflow: hidden; transition: all 0.3s; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.02); }
+        .product-card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.08); border-color: var(--primary); }
+        .product-icon { height: 160px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; font-size: 50px; color: var(--primary); border-bottom: 1px solid var(--border-light); }
+        .product-content { padding: 30px; flex: 1; display: flex; flex-direction: column; }
+        .product-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--secondary); margin-bottom: 10px; display: block; }
+        .product-tag.dev { color: var(--warning); }
+        .product-title { font-size: 22px; margin-bottom: 15px; }
+        .product-desc { color: var(--text-muted); font-size: 15px; margin-bottom: 25px; flex: 1; }
+        .product-link { font-weight: 600; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 8px; font-size: 15px; }
+        .product-link:hover { color: var(--accent); }
+
+        /* How it works */
+        .steps-section { padding: 100px 0; background: white; }
+        .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-top: 50px; }
+        .step-card { text-align: center; }
+        .step-number { width: 50px; height: 50px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; margin: 0 auto 20px; font-family: 'Merriweather', serif; }
+        .step-title { font-size: 18px; margin-bottom: 10px; }
+        .step-desc { color: var(--text-muted); font-size: 15px; }
+
+        /* Data Security */
+        .security-banner { background: var(--primary); color: white; padding: 80px 0; text-align: center; }
+        .security-grid { display: flex; justify-content: center; gap: 60px; margin-top: 50px; flex-wrap: wrap; }
+        .sec-item { display: flex; flex-direction: column; align-items: center; gap: 15px; max-width: 250px; }
+        .sec-item i { font-size: 40px; color: var(--accent); }
+        .sec-item h4 { color: white; font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 600; }
+        .sec-item p { font-size: 14px; color: rgba(255,255,255,0.7); }
+
+        /* Footer */
+        footer { background-color: #050a11; color: white; padding: 80px 0 30px; }
+        .footer-content { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 50px; margin-bottom: 60px; }
+        .footer-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; color: white; font-family: 'Merriweather', serif; font-size: 24px; font-weight: 700; text-decoration: none; }
+        .footer-logo i { color: var(--accent); }
+        .footer-about-text { color: rgba(255, 255, 255, 0.5); max-width: 400px; font-size: 14px; }
+        .footer-title { font-size: 16px; font-weight: 700; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+        .footer-links-col { display: flex; flex-direction: column; gap: 12px; }
+        .footer-links-col a { color: rgba(255, 255, 255, 0.7); text-decoration: none; font-size: 14px; transition: color 0.2s; }
+        .footer-links-col a:hover { color: white; }
+        .copyright { text-align: center; padding-top: 30px; border-top: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.3); font-size: 13px; }
+        
+        .user-logged-in .hero-buttons, .user-logged-in .register-link { display: none !important; }
+        
+        @media (max-width: 992px) { .product-grid, .steps-grid { grid-template-columns: 1fr; } .hero-title { font-size: 40px; } }
+        @media (max-width: 768px) { nav ul { display: none; } .hero-buttons { flex-direction: column; align-items: center; } .btn { width: 100%; max-width: 300px; } }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="#home" class="logo"><i class="fas fa-prescription-bottle-alt"></i> ServiceApotheke</a>
+                <nav>
+                    <ul>
+                        <li><a href="#produkte">Lösungen</a></li>
+                        <li><a href="#prozess">Ablauf</a></li>
+                        <li><a href="#sicherheit">Sicherheit</a></li>
+                        <li class="register-link"><a href="register.html">Registrieren</a></li>
+                        <li id="authContainer"><a href="login.html" class="nav-cta">System-Login</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <section class="hero" id="home">
+        <div class="container">
+            <div class="hero-badge">Die B2B Plattform für Apotheken</div>
+            <h1 class="hero-title">Die digitale Infrastruktur für die Apotheke der Zukunft.</h1>
+            <p class="hero-subtitle">Automatisieren Sie pharmazeutische Dienstleistungen und skalieren Sie Ihr Personalmanagement mit algorithmus-gestützter Präzision.</p>
+            <div class="hero-buttons">
+                <a href="register.html?role=pharmacy" class="btn btn-primary"><i class="fas fa-building"></i> Apotheke registrieren</a>
+                <a href="register.html?role=pharmacist" class="btn btn-secondary"><i class="fas fa-user-md"></i> Fachpersonal Zugang</a>
+            </div>
+        </div>
+    </section>
+
+    <div class="trust-banner">
+        <div class="container trust-grid">
+            <span><i class="fas fa-shield-check"></i> 100% DSGVO-konform</span>
+            <span><i class="fas fa-server"></i> Serverstandort Deutschland</span>
+            <span><i class="fas fa-certificate"></i> Geprüfte Approbationen</span>
+            <span><i class="fas fa-bolt"></i> Echtzeit-Matching</span>
+        </div>
+    </div>
+
+    <section class="products-section" id="produkte">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Ein Ökosystem. Drei Säulen.</h2>
+                <p class="section-subtitle">Wir stellen die technologischen Werkzeuge bereit, um regulatorische Anforderungen in betriebswirtschaftliche Vorteile zu transformieren.</p>
+            </div>
+
+            <div class="product-grid">
+                <div class="product-card">
+                    <div class="product-icon"><i class="fas fa-network-wired"></i></div>
+                    <div class="product-content">
+                        <span class="product-tag">Verfügbar</span>
+                        <h3 class="product-title">Personal-Allokation</h3>
+                        <p class="product-desc">Smart-Matching Vermittlung von approbierten Apothekern und PTA. Schließen Sie Vakanzen in Echtzeit, basierend auf Softwarekenntnissen und lokaler Verfügbarkeit.</p>
+                        <a href="register.html" class="product-link">Zum Marktplatz <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-icon"><i class="fas fa-chart-pie"></i></div>
+                    <div class="product-content">
+                        <span class="product-tag">Verfügbar</span>
+                        <h3 class="product-title">pDL Analyzer</h3>
+                        <p class="product-desc">Identifizieren Sie systematisch Potenziale für Pharmazeutische Dienstleistungen. Automatische, speicherfreie CSV-Analyse Ihres Kundenstamms zur Umsatzgenerierung.</p>
+                        <a href="https://pdl.serviceapotheke.tech" target="_blank" class="product-link">Applikation starten <i class="fas fa-external-link-alt"></i></a>
+                    </div>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-icon"><i class="fas fa-laptop-medical"></i></div>
+                    <div class="product-content">
+                        <span class="product-tag dev">In Entwicklung</span>
+                        <h3 class="product-title">Telepharmazie</h3>
+                        <p class="product-desc">Die sichere Video-Infrastruktur zur ortsunabhängigen Beratung und Auslagerung von pDL an externe Fachapotheker. Erweitern Sie Ihre Beratungskapazität.</p>
+                        <span class="product-link" style="color: var(--text-muted); cursor: default;">Release Q4 2026</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="steps-section" id="prozess">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Einfach. Schnell. Transparent.</h2>
+                <p class="section-subtitle">So funktioniert die digitale Personalbeschaffung über unsere Plattform.</p>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h3 class="step-title">Profil & Verifizierung</h3>
+                    <p class="step-desc">Erstellen Sie ein Profil. Unser Admin-Team prüft Betriebserlaubnis oder Approbation für maximale Sicherheit im Netzwerk.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h3 class="step-title">Vakanz oder Mandat</h3>
+                    <p class="step-desc">Apotheken inserieren Vakanzen mit klarem Budget. Fachpersonal bewirbt sich mit einem Klick auf passgenaue Schichten.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h3 class="step-title">Match & Einsatz</h3>
+                    <p class="step-desc">Zusage durch die Apotheke. Der Einsatz ist gesichert. Automatisierte Dokumentation für die spätere Honorarabrechnung.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="security-banner" id="sicherheit">
+        <div class="container">
+            <h2 style="color: white; margin-bottom: 10px;">Kompromisslose Datensicherheit</h2>
+            <p style="color: rgba(255,255,255,0.8); max-width: 600px; margin: 0 auto;">Infrastruktur nach deutschen und europäischen Gesundheitsstandards entwickelt.</p>
+            
+            <div class="security-grid">
+                <div class="sec-item">
+                    <i class="fas fa-server"></i>
+                    <h4>Lokales Hosting</h4>
+                    <p>Alle Daten werden physisch auf ISO-zertifizierten Servern in der Region Frankfurt am Main verarbeitet.</p>
+                </div>
+                <div class="sec-item">
+                    <i class="fas fa-memory"></i>
+                    <h4>In-Memory Computing</h4>
+                    <p>Patientendaten des pDL Analyzers werden ausschließlich im RAM verarbeitet und nie persistent gespeichert.</p>
+                </div>
+                <div class="sec-item">
+                    <i class="fas fa-file-contract"></i>
+                    <h4>Rechtssicherheit</h4>
+                    <p>Standardisierte Auftragsverarbeitung (AVV) und strenge Identitätsprüfung aller Plattform-Teilnehmer.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div>
+                    <a href="#home" class="footer-logo"><i class="fas fa-prescription-bottle-alt"></i> ServiceApotheke</a>
+                    <p class="footer-about-text">Digitale Infrastruktur für die moderne Apothekenführung. Personal, Dienstleistungen und Telepharmazie aus einer Hand.</p>
+                </div>
+                <div>
+                    <h4 class="footer-title">Unternehmen</h4>
+                    <div class="footer-links-col">
+                        <a href="impressum.html">Impressum</a>
+                        <a href="datenschutz.html">Datenschutzerklärung</a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="footer-title">Kontakt</h4>
+                    <div class="footer-links-col">
+                        <a href="mailto:team@serviceapotheke.tech">team@serviceapotheke.tech</a>
+                        <span style="color: rgba(255, 255, 255, 0.7); font-size: 14px;">Krefeld, Deutschland</span>
+                    </div>
+                </div>
+            </div>
+            <div class="copyright">&copy; 2026 ServiceApotheke. Alle Rechte vorbehalten.</div>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('userToken');
+            const type = localStorage.getItem('userType');
+            const userName = localStorage.getItem('userName') || (type === 'pharmacist' ? 'Apotheker' : 'Apotheke');
+            const authContainer = document.getElementById('authContainer');
+            
+            if (token && type) {
+                document.body.classList.add('user-logged-in');
+                const targetDash = type === 'pharmacist' ? "https://apothekern.serviceapotheke.tech" : "https://apotheken.serviceapotheke.tech";
+                authContainer.innerHTML = `<a href="${targetDash}" class="user-icon"><i class="fas fa-user-circle"></i><span>${userName}</span></a>`;
+            }
+        });
+    </script>
+</body>
+</html>

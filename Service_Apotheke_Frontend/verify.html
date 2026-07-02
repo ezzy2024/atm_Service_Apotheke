@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="de" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konto aktivieren – ServiceApotheke</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background: #f4f7f9; display: flex; align-items: center; justify-content: center; height: 100vh; padding: 20px; color: #2d3748; }
+        
+        .box { background: white; padding: 50px 40px; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); width: 100%; max-width: 450px; border: 1px solid #e2e8f0; text-align: center; }
+        
+        .logo-icon { font-size: 50px; color: #0f2942; margin-bottom: 20px; }
+        h2 { margin-bottom: 15px; font-size: 26px; color: #0f2942; font-family: 'Merriweather', serif; }
+        p { color: #718096; margin-bottom: 30px; font-size: 15px; line-height: 1.6; }
+        
+        input { width: 100%; padding: 16px; margin-bottom: 25px; border: 2px solid #cbd5e1; border-radius: 8px; font-size: 24px; text-align: center; letter-spacing: 5px; font-weight: 700; color: #0f2942; transition: all 0.2s; }
+        input:focus { border-color: #0f2942; outline: none; box-shadow: 0 0 0 4px rgba(15, 41, 66, 0.1); }
+        
+        .btn { width: 100%; padding: 16px; background: #0f2942; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 16px; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn:hover { background: #173d61; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(15, 41, 66, 0.2); }
+        .btn:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; box-shadow: none; }
+        
+        .message-box { margin-top: 25px; padding: 15px; border-radius: 8px; font-size: 14px; font-weight: 500; display: none; }
+        .message-box.error { background: #fff5f5; color: #c53030; border: 1px solid #fed7d7; display: block; }
+        .message-box.success { background: #f0fdf4; color: #2f855a; border: 1px solid #bbf7d0; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <i class="fas fa-prescription-bottle-alt logo-icon"></i>
+    <h2>Sicherheitsprüfung</h2>
+    <p>Bitte geben Sie den 6-stelligen Aktivierungscode ein, den wir an <strong><span id="display-email">Ihre E-Mail</span></strong> gesendet haben.</p>
+    
+    <input type="text" id="token" placeholder="000000" maxlength="6" autocomplete="off">
+    <button class="btn" id="verify-btn" onclick="verify()"><i class="fas fa-shield-check"></i> Systemzugang aktivieren</button>
+    
+    <div id="message" class="message-box"></div>
+</div>
+
+<script>
+    const API_URL = "https://serviceapotheke-api-830781040278.europe-west3.run.app/api";
+    const email = localStorage.getItem('regEmail');
+    const role = localStorage.getItem('regRole');
+
+    if (email) {
+        document.getElementById('display-email').innerText = email;
+    } else {
+        window.location.replace("register.html");
+    }
+
+    async function verify() {
+        const token = document.getElementById('token').value.trim();
+        const btn = document.getElementById('verify-btn');
+        const msgBox = document.getElementById('message');
+
+        if (token.length !== 6) {
+            msgBox.className = "message-box error";
+            msgBox.innerText = "Bitte geben Sie einen gültigen 6-stelligen Code ein.";
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Prüfe...';
+        msgBox.style.display = "none";
+
+        const endpoint = role === "pharmacist" ? "Pharmacist/confirm-email" : "Pharmacy/confirm-email";
+
+        try {
+            const response = await fetch(`${API_URL}/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, token: token })
+            });
+
+            if (response.ok) {
+                msgBox.className = "message-box success";
+                msgBox.innerHTML = '<i class="fas fa-check-circle"></i> Zugang erfolgreich aktiviert. Sie werden weitergeleitet...';
+                localStorage.removeItem('regEmail');
+                
+                // Direkte Weiterleitung zum sicheren Login
+                setTimeout(() => { window.location.replace("login.html"); }, 2000);
+            } else {
+                const text = await response.text();
+                msgBox.className = "message-box error";
+                msgBox.innerText = "Sicherheitscode ungültig oder abgelaufen.";
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-shield-check"></i> Erneut versuchen';
+            }
+        } catch (err) {
+            msgBox.className = "message-box error";
+            msgBox.innerText = "Netzwerkfehler. Bitte prüfen Sie Ihre Verbindung.";
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-shield-check"></i> Systemzugang aktivieren';
+        }
+    }
+    
+    document.getElementById('token').addEventListener('keypress', e => { if (e.key === 'Enter') verify(); });
+</script>
+</body>
+</html>

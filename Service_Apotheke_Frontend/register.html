@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="de" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Premium Netzwerk - ServiceApotheke</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="Service Apotheke.png">
+    <style>
+        :root {
+            --primary: #0f2942; 
+            --primary-hover: #173d61;
+            --accent: #c6a87c; 
+            --bg-body: #f4f7f9;
+            --text-main: #2d3748;
+            --border-light: #e2e8f0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-body); color: var(--text-main); line-height: 1.6; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        
+        .container { max-width: 1000px; width: 100%; margin: 0 auto; }
+        .registration-box { background: white; display: flex; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08); border: 1px solid var(--border-light); flex-direction: row; }
+        
+        .left-panel { flex: 1; background: linear-gradient(135deg, var(--primary), #1a365d); color: white; padding: 50px 40px; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+        .left-panel h1 { font-family: 'Merriweather', serif; font-size: 32px; margin-bottom: 15px; color: white; }
+        .left-panel p { font-size: 15px; opacity: 0.9; line-height: 1.6; }
+        .logo-icon { font-size: 50px; margin-bottom: 25px; color: var(--accent); }
+
+        .right-panel { flex: 1.3; padding: 50px 40px; width: 100%; background: #ffffff; }
+        
+        .tabs { display: flex; border-bottom: 2px solid var(--border-light); margin-bottom: 30px; gap: 10px; }
+        .tab { flex: 1; text-align: center; padding: 15px 5px; cursor: pointer; font-weight: 600; color: #718096; transition: all 0.3s ease; font-size: 15px; border-bottom: 3px solid transparent; }
+        .tab.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
+        
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group.full { grid-column: 1 / -1; }
+        
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 12px; color: #4a5568; text-transform: uppercase; letter-spacing: 0.5px; }
+        input[type="text"], input[type="email"], input[type="password"], input[type="tel"] { width: 100%; padding: 14px 16px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; background-color: #f8fafc; transition: all 0.2s ease; }
+        input:focus { border-color: var(--primary); outline: none; background-color: white; box-shadow: 0 0 0 3px rgba(15, 41, 66, 0.1); }
+        
+        /* Checkbox Styling für Rechtstexte */
+        .checkbox-group { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 15px; text-align: left; grid-column: 1 / -1; }
+        .checkbox-group input[type="checkbox"] { width: auto; transform: scale(1.2); cursor: pointer; margin-top: 4px; }
+        .checkbox-label { font-size: 12px; color: #718096; text-transform: none; letter-spacing: normal; font-weight: normal; line-height: 1.5; margin: 0; display: inline; }
+        .checkbox-label a { color: var(--primary); font-weight: 600; text-decoration: none; }
+        .checkbox-label a:hover { text-decoration: underline; }
+
+        .btn { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn:hover { background: var(--primary-hover); }
+        .btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+        
+        .error-msg { color: #c53030; font-size: 13px; margin-top: 15px; display: none; background: #fff5f5; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #fed7d7; }
+        
+        .form-content { display: none; animation: fadeIn 0.4s ease; }
+        .form-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .login-link { margin-top: 30px; text-align: center; font-size: 14px; color: #718096; }
+        .login-link a { color: var(--primary); font-weight: 600; text-decoration: none; }
+        .login-link a:hover { text-decoration: underline; }
+
+        @media(max-width:768px) { 
+            .registration-box { flex-direction: column; } 
+            .left-panel { padding: 40px 20px; }
+            .right-panel { padding: 40px 20px; }
+            .form-grid { grid-template-columns: 1fr; gap: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="registration-box">
+            <div class="left-panel">
+                <i class="fas fa-prescription-bottle-alt logo-icon"></i>
+                <h1>ServiceApotheke</h1>
+                <p>Das exklusive Netzwerk für Apotheken und hochqualifiziertes Fachpersonal. Digital, schnell und sicher.</p>
+            </div>
+            <div class="right-panel">
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab('pharmacist')"><i class="fas fa-user-md"></i> Apotheker / PTA</div>
+                    <div class="tab" onclick="switchTab('pharmacy')"><i class="fas fa-clinic-medical"></i> Apotheken-Inhaber</div>
+                </div>
+
+                <form id="pharmacistForm" class="form-content active">
+                    <div class="form-group full"><label>Vollständiger Name *</label><input type="text" id="p_fullName" required placeholder="z.B. Dr. Max Müller"></div>
+                    <div class="form-grid">
+                        <div class="form-group"><label>E-Mail Adresse *</label><input type="email" id="p_email" required placeholder="name@beispiel.de"></div>
+                        <div class="form-group"><label>Mobilnummer *</label><input type="tel" id="p_phone" required placeholder="Für dringende Rückfragen"></div>
+                    </div>
+                    <div class="form-group full"><label>Wohnort *</label><input type="text" id="p_address" required placeholder="Stadt, Land"></div>
+                    <div class="form-group full"><label>Sicheres Passwort *</label><input type="password" id="p_password" required minlength="6" placeholder="Mindestens 6 Zeichen"></div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="p_agb_check" required>
+                        <label for="p_agb_check" class="checkbox-label">
+                            Ich bestätige, dass ich freiberuflich bzw. gewerblich handle. Ich akzeptiere die <a href="agb.html" target="_blank">Allgemeinen Geschäftsbedingungen</a> und den Rahmenvertrag zur Honorarvermittlung.
+                        </label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="p_datenschutz_check" required>
+                        <label for="p_datenschutz_check" class="checkbox-label">
+                            Ich habe die <a href="datenschutz.html" target="_blank">Datenschutzerklärung</a> zur Kenntnis genommen und stimme der Verarbeitung meiner Daten durch die Plattform sowie der Weitergabe an Google Cloud zu.
+                        </label>
+                    </div>
+
+                    <div id="p_error" class="error-msg"></div>
+                    <button type="submit" class="btn" id="p_btn">Konto erstellen</button>
+                </form>
+
+                <form id="pharmacyForm" class="form-content">
+                    <div class="form-group full"><label>Offizieller Name der Apotheke *</label><input type="text" id="ph_name" required placeholder="Apotheke am Markt"></div>
+                    <div class="form-grid">
+                        <div class="form-group"><label>Betriebliche E-Mail *</label><input type="email" id="ph_email" required placeholder="kontakt@apotheke.de"></div>
+                        <div class="form-group"><label>Apotheken-Telefon *</label><input type="tel" id="ph_phone" required placeholder="030 12345678"></div>
+                    </div>
+                    <div class="form-group full"><label>Vollständige Betriebsstätte *</label><input type="text" id="ph_address" required placeholder="Straße, PLZ Stadt"></div>
+                    <div class="form-group full"><label>Sicheres Passwort *</label><input type="password" id="ph_password" required minlength="6" placeholder="Mindestens 6 Zeichen"></div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="ph_agb_check" required>
+                        <label for="ph_agb_check" class="checkbox-label">
+                            Ich bestätige, im Namen der Apotheke gewerblich zu handeln. Ich akzeptiere die <a href="agb.html" target="_blank">Allgemeinen Geschäftsbedingungen</a>.
+                        </label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="ph_datenschutz_check" required>
+                        <label for="ph_datenschutz_check" class="checkbox-label">
+                            Ich habe die <a href="datenschutz.html" target="_blank">Datenschutzerklärung</a> zur Kenntnis genommen und stimme der Verarbeitung meiner Daten sowie der Weitergabe an Stripe Payments und Google Cloud zu.
+                        </label>
+                    </div>
+
+                    <div id="ph_error" class="error-msg"></div>
+                    <button type="submit" class="btn" id="ph_btn">Apotheke registrieren</button>
+                </form>
+
+                <p class="login-link">Haben Sie bereits ein Konto? <a href="login.html">Hier sicher anmelden</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Correct configuration
+       const API_URL = "https://serviceapotheke-api-830781040278.europe-west3.run.app/api";
+        
+        function switchTab(role) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.form-content').forEach(f => f.classList.remove('active'));
+            if (role === 'pharmacist') {
+                document.querySelectorAll('.tab')[0].classList.add('active');
+                document.getElementById('pharmacistForm').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab')[1].classList.add('active');
+                document.getElementById('pharmacyForm').classList.add('active');
+            }
+        }
+
+        document.getElementById('pharmacistForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                fullName: document.getElementById('p_fullName').value,
+                email: document.getElementById('p_email').value,
+                password: document.getElementById('p_password').value,
+                phoneNumber: document.getElementById('p_phone').value,
+                address: document.getElementById('p_address').value
+            };
+            await sendRequest(`${API_URL}/Pharmacist/register`, data, 'p_btn', 'p_error', "pharmacist");
+        });
+
+        document.getElementById('pharmacyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                pharmacyName: document.getElementById('ph_name').value,
+                email: document.getElementById('ph_email').value,
+                password: document.getElementById('ph_password').value,
+                phoneNumber: document.getElementById('ph_phone').value,
+                address: document.getElementById('ph_address').value,
+                licenseNumber: "Ausstehend" // Placeholder, wird im Dashboard ergänzt
+            };
+            await sendRequest(`${API_URL}/Pharmacy/register`, data, 'ph_btn', 'ph_error', "pharmacy");
+        });
+
+        async function sendRequest(url, data, btnId, errId, role) {
+            const btn = document.getElementById(btnId);
+            const errDiv = document.getElementById(errId);
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Infrastruktur wird vorbereitet...';
+            errDiv.style.display = "none";
+            
+            try {
+                const response = await fetch(url, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify(data) 
+                });
+                
+                if (response.ok) {
+                    localStorage.setItem('regEmail', data.email);
+                    localStorage.setItem('regRole', role);
+                    window.location.href = "verify.html";
+                } else {
+                    const result = await response.text();
+                    let msg = "Registrierung fehlgeschlagen.";
+                    try {
+                        const json = JSON.parse(result);
+                        msg = json.message || json.title || msg;
+                    } catch { msg = result || msg; }
+                    errDiv.innerText = msg;
+                    errDiv.style.display = "block";
+                }
+            } catch (error) {
+                errDiv.innerText = "Sicherheitsserver nicht erreichbar. Bitte prüfen Sie Ihre Verbindung.";
+                errDiv.style.display = "block";
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = role === 'pharmacist' ? 'Konto erstellen' : 'Apotheke registrieren';
+            }
+        }
+    </script>
+</body>
+</html>

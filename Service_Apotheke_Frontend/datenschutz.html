@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="de" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Datenschutz – ServiceApotheke</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Merriweather:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #2d3748; line-height: 1.8; padding: 40px 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 50px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        h1 { font-family: 'Merriweather', serif; color: #0f2942; margin-bottom: 30px; font-size: 32px; }
+        h2 { color: #0f2942; margin-top: 40px; margin-bottom: 15px; font-size: 22px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+        h3 { color: #1e88e5; margin-top: 25px; margin-bottom: 10px; font-size: 18px; }
+        p, li { margin-bottom: 15px; color: #4a5568; }
+        ul { margin-left: 20px; margin-bottom: 15px; }
+        a { color: #1e88e5; text-decoration: none; }
+        .back-link { display: inline-block; margin-bottom: 30px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> Zurück zur Startseite</a>
+        
+        <h1>Datenschutzerklärung</h1>
+        <h2>Lokale Datenspeicherung (Local Storage)</h2>
+        <h2>1. Datenschutz auf einen Blick</h2>
+        <h3>Allgemeine Hinweise</h3>
+        <p>Die folgenden Hinweise geben einen einfachen Überblick darüber, was mit Ihren personenbezogenen Daten passiert, wenn Sie diese Website besuchen. Personenbezogene Daten sind alle Daten, mit denen Sie persönlich identifiziert werden können.</p>
+        <p>Zur Authentifizierung und Aufrechterhaltung der Benutzersitzung verwenden wir den sogenannten Local Storage des Browsers. Hierbei wird ein verschlüsseltes JSON Web Token (JWT) lokal auf Ihrem Endgerät gespeichert. Diese Speicherung ist technisch zwingend erforderlich, um den Login-Status über verschiedene Seitenaufrufe hinweg zu erhalten (Art. 6 Abs. 1 lit. f DSGVO).</p>
+        <h2>2. Hosting und Content Delivery Networks (CDN)</h2>
+        <p>Unsere API und Datenbank werden auf Servern der Google Cloud EMEA Ltd., 70 Sir John Rogerson’s Quay, Dublin 2, Irland, gehostet. Der Serverstandort ist Frankfurt am Main (europe-west3). Die Verarbeitung erfolgt auf Grundlage unseres berechtigten Interesses an einer sicheren und schnellen Bereitstellung unseres Angebots (Art. 6 Abs. 1 lit. f DSGVO). Wir haben einen Vertrag zur Auftragsverarbeitung (AVV) mit Google Cloud geschlossen.</p>  
+        <h2>3. Zahlungsdienstleister Stripe</h2>
+    <p>Die Abwicklung von Rechnungen erfolgt über Stripe Payments Europe, Ltd., 1 Grand Canal Street Lower, Grand Canal Dock, Dublin, Irland. Wir geben Ihre Zahlungsdaten (Name, Anschrift, Rechnungsbetrag, IBAN/Kreditkartendaten) im Rahmen der Zahlungsabwicklung an Stripe weiter (Art. 6 Abs. 1 lit. b DSGVO). Die Zahlungsdaten werden direkt über ein gesichertes iFrame von Stripe erhoben.</p>
+
+    <h2>4. System-E-Mails (IONOS)</h2>
+    <p>Für den Versand von Aktivierungscodes und Systembenachrichtigungen nutzen wir die SMTP-Server der IONOS SE, Elgendorfer Str. 57, 56410 Montabaur. Ihre E-Mail-Adresse wird zu diesem Zweck verarbeitet (Art. 6 Abs. 1 lit. b DSGVO).</p>
+        <h3>Google Cloud EMEA</h3>
+        <p>Wir hosten unsere API-Infrastruktur und Datenbanken bei Google Cloud EMEA Ltd., 70 Sir John Rogerson’s Quay, Dublin 2, Irland. Die Verarbeitung der Daten erfolgt auf Servern innerhalb der Europäischen Union (Region Frankfurt am Main). Die Nutzung von Google Cloud erfolgt auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO. Wir haben ein berechtigtes Interesse an einer möglichst zuverlässigen Darstellung unserer Website. Wir haben einen Vertrag über Auftragsverarbeitung (AVV) zur Nutzung des oben genannten Dienstes geschlossen.</p>
+
+        <h3>IONOS Webhosting</h3>
+        <p>Die statischen Webseiten werden von IONOS SE, Elgendorfer Str. 57, 56410 Montabaur gehostet. Auch hierfür liegt ein entsprechender AVV vor.</p>
+
+        <h2>4. Verarbeitung von Patientendaten (pDL Analyzer)</h2>
+        <h3>In-Memory Computing & Auftragsverarbeitung</h3>
+        <p>Der "pDL Analyzer" ermöglicht Apotheken die automatisierte Auswertung von Kundenstämmen. Die hochgeladenen Dateien (z.B. CSV) werden <strong>ausschließlich im Arbeitsspeicher (RAM)</strong> unserer Server verarbeitet und nach Abschluss der Analyse (bruchteile von Sekunden) unwiderruflich aus dem Arbeitsspeicher gelöscht. Es findet <strong>keine persistente Speicherung</strong> von Patientendaten (wie Namen, Adressen oder Medikationsprofilen) auf Festplatten oder in Datenbanken statt.</p>
+        <p>Im Rahmen der Nutzung des pDL Analyzers fungieren wir als Auftragsverarbeiter gemäß Art. 28 DSGVO. Einen elektronischen Auftragsverarbeitungsvertrag (AVV) stellen wir allen registrierten Apotheken im Dashboard zur Verfügung.</p>
+
+        <h2>5. Datenerfassung bei Registrierung (Apotheken & Apotheker)</h2>
+        <p>Wenn Sie sich auf unserer B2B-Plattform registrieren, erheben wir folgende Daten:</p>
+        <ul>
+            <li>Name / Firmenname</li>
+            <li>E-Mail-Adresse und Telefonnummer</li>
+            <li>Berufsbezogene Nachweise (Approbationsurkunde, Betriebserlaubnis)</li>
+            <li>Adress- und Standortdaten für das Smart-Matching</li>
+        </ul>
+        <p>Die Verarbeitung dieser Daten erfolgt auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO, sofern Ihre Anfrage mit der Erfüllung eines Vertrags zusammenhängt oder zur Durchführung vorvertraglicher Maßnahmen erforderlich ist.</p>
+
+        <h2>5. Ihre Rechte</h2>
+        <p>Sie haben jederzeit das Recht, unentgeltlich Auskunft über Herkunft, Empfänger und Zweck Ihrer gespeicherten personenbezogenen Daten zu erhalten. Sie haben außerdem ein Recht, die Berichtigung oder Löschung dieser Daten zu verlangen. Hierzu sowie zu weiteren Fragen zum Thema Datenschutz können Sie sich jederzeit unter <strong>team@serviceapotheke.tech</strong> an uns wenden.</p>
+    </div>
+</body>
+</html>

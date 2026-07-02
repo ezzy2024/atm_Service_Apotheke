@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="de" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apotheken Cockpit - ServiceApotheke</title>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        if(urlParams.has('id') && urlParams.has('type')) {
+            if(urlParams.has('token') && urlParams.get('token') !== 'undefined') {
+                localStorage.setItem('userToken', urlParams.get('token'));
+            }
+            localStorage.setItem('userId', urlParams.get('id'));
+            localStorage.setItem('userType', urlParams.get('type'));
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        const role = localStorage.getItem('userType');
+        const userId = localStorage.getItem('userId');
+        
+        if (!userId || userId === 'undefined') {
+            localStorage.clear();
+            window.location.replace("https://serviceapotheke.tech/login.html?logout=true");
+        } else {
+            document.documentElement.style.visibility = 'visible';
+        }
+        function downloadSecurePdf(invoiceId) {
+            const token = localStorage.getItem('userToken') || sessionStorage.getItem('userToken');
+            const API_URL = "https://serviceapotheke-api-830781040278.europe-west3.run.app/api";
+            if(!token) {
+                alert("Sitzung abgelaufen. Bitte neu anmelden.");
+                return;
+            }
+            window.open(`${API_URL}/InvoiceDownload/${invoiceId}/download?token=${token}`, '_blank');
+        }
+    </script>
+    <style>html { visibility: hidden; }</style>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="Service Apotheke.png">
+
+    <style>
+        :root {
+            --primary: #0f2942; 
+            --primary-hover: #173d61;
+            --primary-light: #e6f0fa;
+            --accent: #c6a87c; 
+            --secondary: #2f855a; 
+            --danger: #c53030; 
+            --warning: #dd6b20; 
+            --bg-body: #f4f7f9;
+            --bg-card: #ffffff;
+            --text-main: #2d3748;
+            --text-muted: #718096;
+            --border-light: #e2e8f0;
+            --sidebar-width: 260px;
+            --shadow-subtle: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            --radius: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-body); color: var(--text-main); display: flex; min-height: 100vh; }
+        h1, h2, h3 { font-family: 'Merriweather', serif; color: var(--primary); }
+
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 15px 20px; border-radius: var(--radius); color: white; font-weight: 500; box-shadow: var(--shadow-subtle); display: flex; align-items: center; gap: 10px; opacity: 0; transform: translateX(100%); transition: all 0.3s ease; }
+        .toast.show { opacity: 1; transform: translateX(0); }
+        .toast-success { background: var(--secondary); }
+        .toast-error { background: var(--danger); }
+
+        .sidebar { width: var(--sidebar-width); background: var(--primary); color: white; position: fixed; height: 100vh; top: 0; left: 0; padding: 20px 15px; overflow-y: auto; z-index: 100; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
+        .sidebar-header { display: flex; align-items: center; gap: 15px; padding-bottom: 20px; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .logo { width: 40px; height: 40px; background: white; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 20px; }
+        .app-name { font-size: 18px; font-weight: 700; color: white; letter-spacing: 0.5px; }
+        
+        .nav-item { padding: 12px 15px; margin-bottom: 8px; border-radius: var(--radius); cursor: pointer; display: flex; align-items: center; gap: 12px; font-weight: 500; transition: all 0.2s; border-left: 3px solid transparent; }
+        .nav-item i { font-size: 18px; color: var(--accent); width: 20px; text-align: center; }
+        .nav-item:hover { background: rgba(255,255,255,0.05); border-left-color: var(--accent); }
+        .nav-item.active { background: rgba(255,255,255,0.1); border-left-color: var(--accent); font-weight: 600; color: white; }
+        
+        .badge { background: var(--accent); color: var(--primary); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; margin-left: auto; }
+        .logout-btn { margin-top: 40px; padding: 12px 15px; background: rgba(0,0,0,0.2); border-radius: var(--radius); cursor: pointer; display: flex; align-items: center; gap: 12px; font-weight: 500; transition: background 0.2s; }
+        .logout-btn:hover { background: rgba(0,0,0,0.4); }
+
+        .main-wrapper { margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); padding: 40px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 1px solid var(--border-light); }
+        .welcome h1 { font-size: 28px; margin-bottom: 5px; font-weight: 900; }
+        .welcome p { color: var(--text-muted); font-size: 14px; font-weight: 500; }
+        .user-info { display: flex; align-items: center; gap: 15px; text-align: right; }
+        .user-details strong { display: block; color: var(--primary); font-size: 16px; font-family: 'Merriweather', serif; }
+        .user-details span { font-size: 13px; color: var(--text-muted); }
+        .avatar { width: 48px; height: 48px; background: var(--bg-card); border: 2px solid var(--border-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 20px; font-weight: 700; font-family: 'Merriweather', serif; }
+
+        .section { display: none; animation: fadeIn 0.4s ease; }
+        .section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid var(--primary-light); }
+        .section-header h2 { font-size: 22px; display: flex; align-items: center; gap: 10px; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .stat-card { background: var(--bg-card); padding: 25px; border-radius: var(--radius); border: 1px solid var(--border-light); border-top: 4px solid var(--primary); box-shadow: var(--shadow-subtle); display: flex; align-items: center; gap: 20px; transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .stat-icon { width: 55px; height: 55px; background: var(--primary-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--primary); flex-shrink: 0; }
+        .stat-info h3 { font-size: 30px; margin-bottom: 2px; font-family: 'Inter', sans-serif; color: var(--text-main); }
+        .stat-info p { color: var(--text-muted); font-size: 13px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+
+        .data-table-wrapper { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius); box-shadow: var(--shadow-subtle); overflow: hidden; margin-bottom: 30px; }
+        .data-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .data-table th, .data-table td { padding: 18px 20px; border-bottom: 1px solid var(--border-light); font-size: 14px; }
+        .data-table th { background: #f8fafc; color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        .data-table tbody tr:hover { background: #f1f5f9; }
+        .data-table tbody tr:last-child td { border-bottom: none; }
+        
+        .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .status-pending { background: #fef3c7; color: var(--warning); border: 1px solid #fbd38d; }
+        .status-accepted { background: #c6f6d5; color: var(--secondary); border: 1px solid #9ae6b4; }
+        .status-rejected { background: #fed7d7; color: var(--danger); border: 1px solid #feb2b2; }
+        .status-completed { background: #e2e8f0; color: var(--text-muted); border: 1px solid #cbd5e1; }
+
+        .form-wrapper { background: var(--bg-card); border: 1px solid var(--border-light); padding: 30px; border-radius: var(--radius); box-shadow: var(--shadow-subtle); max-width: 800px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group.full { grid-column: 1 / -1; }
+        .form-label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-main); font-size: 14px; }
+        .form-control { width: 100%; padding: 12px 15px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; font-family: 'Inter', sans-serif; transition: border 0.2s; }
+        .form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+        textarea.form-control { min-height: 120px; resize: vertical; }
+        
+        .btn { padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; font-family: 'Inter', sans-serif; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-success { background: var(--secondary); color: white; }
+        .btn-success:hover { background: #22543d; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #9b2c2c; }
+        .btn-outline { background: white; border: 1px solid var(--border-light); color: var(--text-main); }
+        .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+        .btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        /* Grid Data Cards */
+        .grid-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .data-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-subtle); display: flex; flex-direction: column; gap: 12px; transition: transform 0.2s, box-shadow 0.2s; }
+        .data-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-color: #cbd5e1; }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px; }
+        .card-header h4 { font-size: 16px; color: var(--primary); font-family: 'Inter', sans-serif; font-weight: 700; margin-bottom: 4px; }
+        .card-header .date { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+        .card-body { font-size: 14px; color: var(--text-main); display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+        .card-row { display: flex; justify-content: space-between; align-items: center; }
+        .card-label { color: var(--text-muted); font-size: 12px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        .card-value { font-weight: 600; }
+        .card-value.amount { font-size: 18px; color: var(--primary); }
+        .card-actions { margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-light); display: flex; gap: 10px; justify-content: flex-end; }
+
+        /* Empty States */
+        .empty-state { text-align: center; padding: 40px 20px; background: var(--bg-card); border: 1px dashed #cbd5e1; border-radius: var(--radius); color: var(--text-muted); }
+        .empty-state i { font-size: 48px; color: #cbd5e1; margin-bottom: 15px; }
+        .empty-state h3 { font-size: 18px; color: var(--text-main); font-family: 'Inter', sans-serif; margin-bottom: 8px; font-weight: 600; }
+        .empty-state p { font-size: 14px; max-width: 300px; margin: 0 auto; }
+
+        /* Skeleton Loaders */
+        .skeleton-wrapper { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .skeleton-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 20px; height: 180px; display: flex; flex-direction: column; gap: 15px; }
+        .skeleton-box { background: #e2e8f0; border-radius: 4px; animation: shimmer 1.5s infinite linear; background: linear-gradient(to right, #e2e8f0 4%, #f1f5f9 25%, #e2e8f0 36%); background-size: 1000px 100%; }
+        @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+
+        .loading-spinner { text-align: center; padding: 50px; color: var(--primary); font-size: 24px; display: none; } /* hide default spinner now */
+
+        .mobile-toggle { display: none; }
+        @media (max-width: 768px) {
+            .mobile-toggle { display: block; position: fixed; top: 15px; left: 15px; z-index: 1001; background: var(--primary); color: white; border: none; width: 45px; height: 45px; border-radius: var(--radius); font-size: 20px; }
+            .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+            .sidebar.open { transform: translateX(0); }
+            .main-wrapper { margin-left: 0; width: 100%; padding: 70px 20px 20px; }
+            .header { flex-direction: column; align-items: flex-start; gap: 15px; }
+            .user-info { width: 100%; justify-content: space-between; flex-direction: row-reverse; }
+            .user-details { text-align: left; }
+            .form-row { grid-template-columns: 1fr; }
+        }
+    </style>
+    <script>
+        const API_BASE_URL = "https://serviceapotheke-api-830781040278.europe-west3.run.app/api";
+
+        const ApiClient = {
+            async request(endpoint, method = 'GET', body = null) {
+                const url = `${API_BASE_URL}${endpoint}`;
+                const options = {
+                    method,
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include' 
+                };
+
+                const token = localStorage.getItem('userToken');
+                if (token) {
+                    options.headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                if (body) {
+                    options.headers['Content-Type'] = 'application/json';
+                    options.body = JSON.stringify(body);
+                }
+
+                try {
+                    const response = await fetch(url, options);
+                    
+                    if (response.status === 401) {
+                        console.warn("[Auth] Session invalid or cookie missing. Forcing logout.");
+                        if (typeof Auth !== 'undefined' && Auth.logout) {
+                            Auth.logout();
+                        } else {
+                            localStorage.clear();
+                            window.location.replace("https://serviceapotheke.tech/login.html?logout=true");
+                        }
+                        throw new Error("Sitzung abgelaufen.");
+                    }
+
+                    const contentType = response.headers.get("content-type");
+                    const data = contentType && contentType.includes("application/json") 
+                        ? await response.json() 
+                        : await response.text();
+
+                    if (!response.ok) {
+                        throw new Error(data?.message || (typeof data === 'string' ? data : "Systemfehler"));
+                    }
+
+                    return data;
+                } catch (error) {
+                    console.error(`[API Error] ${method} ${endpoint}:`, error);
+                    throw error;
+                }
+            },
+
+            get(endpoint) { return this.request(endpoint, 'GET'); },
+            post(endpoint, body) { return this.request(endpoint, 'POST', body); },
+            put(endpoint, body) { return this.request(endpoint, 'PUT', body); },
+            delete(endpoint) { return this.request(endpoint, 'DELETE'); }
+        };
+    </script>
+</head>
+
+<body>
+    <div id="toast-container"></div>
+    <button class="mobile-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="fas fa-bars"></i></button>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo"><i class="fas fa-prescription-bottle-alt"></i></div>
+            <div class="app-name">ServiceApotheke</div>
+        </div>
+        
+        <div class="nav-item active" onclick="showSection('dashboard')">
+            <i class="fas fa-chart-line"></i><span>Inhaber-Dashboard</span>
+        </div>
+        <div class="nav-item" onclick="showSection('create-shift')">
+            <i class="fas fa-plus-circle"></i><span>Vakanz publizieren</span>
+        </div>
+        <div class="nav-item" onclick="showSection('my-shifts')">
+            <i class="fas fa-list-alt"></i><span>Portfolio-Status</span>
+        </div>
+        <div class="nav-item" onclick="showSection('applications')">
+            <i class="fas fa-users"></i><span>Bewerber-Radar</span>
+            <span id="applications-badge" class="badge" style="display: none;">0</span>
+        </div>
+        <div class="nav-item" onclick="showSection('invoices')">
+            <i class="fas fa-file-invoice-dollar"></i><span>Abrechnungen</span>
+        </div>
+        <div class="nav-item" onclick="showSection('profile')">
+            <i class="fas fa-hospital"></i><span>Compliance Profil</span>
+        </div>
+        
+        <div class="logout-btn" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i><span>Sitzung beenden</span>
+        </div>
+    </aside>
+
+    <main class="main-wrapper">
+        <header class="header">
+            <div class="welcome">
+                <h1>Apotheken Cockpit</h1>
+                <p id="currentDate"></p>
+            </div>
+            <div class="user-info">
+                <div class="user-details">
+                    <strong id="userFullName">Wird geladen...</strong>
+                    <span id="userEmail"></span>
+                </div>
+                <div class="avatar" id="userAvatar">A</div>
+            </div>
+        </header>
+
+        <section id="section-dashboard" class="section active">
+            <div class="section-header">
+                <h2><i class="fas fa-chart-line"></i> Strategische Übersicht</h2>
+                <button class="btn btn-outline" onclick="loadDashboardData()"><i class="fas fa-sync-alt"></i> Synchronisieren</button>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-clipboard-list"></i></div>
+                    <div class="stat-info"><h3 id="stat-vacancies">0</h3><p>Aktive Vakanzen</p></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-user-md"></i></div>
+                    <div class="stat-info"><h3 id="stat-candidates">0</h3><p>Offene Kandidaten</p></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-euro-sign"></i></div>
+                    <div class="stat-info"><h3 id="stat-budget">0 €</h3><p>Budget (Offen)</p></div>
+                </div>
+            </div>
+
+            <h3 style="margin-bottom: 20px;">Sofortiger Handlungsbedarf</h3>
+            <div id="dashboard-urgent-list">
+                <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div>
+            </div>
+        </section>
+
+        <section id="section-create-shift" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-plus-circle"></i> Neue Vakanz publizieren</h2>
+            </div>
+            <div class="form-wrapper">
+                <form id="createShiftForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Einsatzdatum *</label>
+                            <input type="date" id="s_date" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tagesvergütung (€) *</label>
+                            <input type="number" id="s_salary" class="form-control" required placeholder="z.B. 450">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Dienstbeginn *</label>
+                            <input type="time" id="s_start" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Dienstende *</label>
+                            <input type="time" id="s_end" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-group full">
+                        <label class="form-label">Spezifische Anforderungen & Hinweise</label>
+                        <textarea id="s_notes" class="form-control" placeholder="Welches Kassensystem wird genutzt? Gibt es Parkplätze?"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="btn-publish"><i class="fas fa-paper-plane"></i> Vakanz freigeben</button>
+                </form>
+            </div>
+        </section>
+
+        <section id="section-my-shifts" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-list-alt"></i> Portfolio-Status</h2>
+                <button class="btn btn-outline" onclick="loadMyShifts()"><i class="fas fa-sync-alt"></i> Aktualisieren</button>
+            </div>
+            <div id="my-shifts-list">
+                <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div>
+            </div>
+        </section>
+
+        <section id="section-applications" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-users"></i> Bewerber-Radar</h2>
+                <button class="btn btn-outline" onclick="loadApplications()"><i class="fas fa-sync-alt"></i> Aktualisieren</button>
+            </div>
+            <div id="all-applications-list">
+                <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div>
+            </div>
+        </section>
+
+        <section id="section-invoices" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-file-invoice-dollar"></i> Abrechnungen & Freigaben</h2>
+                <button class="btn btn-outline" onclick="loadInvoices()"><i class="fas fa-sync-alt"></i> Aktualisieren</button>
+            </div>
+            
+            <h3 style="font-size: 16px; margin-bottom: 15px; color: var(--warning);"><i class="fas fa-clock"></i> Zu prüfende Zeiten</h3>
+            <div id="pending-timesheets-list" style="margin-bottom: 40px;">
+                <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div>
+            </div>
+
+            <h3 style="font-size: 16px; margin-bottom: 15px; color: var(--primary);"><i class="fas fa-file-pdf"></i> Offene & Bezahnte Rechnungen</h3>
+            <div id="invoices-list">
+                <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div>
+            </div>
+        </section>
+
+        <section id="section-profile" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-hospital"></i> Compliance Profil</h2>
+            </div>
+            <div class="form-wrapper">
+                <form id="profileForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Name der Apotheke *</label>
+                            <input type="text" id="p_name" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Notfall-Kontakt (Telefon) *</label>
+                            <input type="tel" id="p_phone" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-group full">
+                        <label class="form-label">Betriebsstätte (Vollständige Adresse) *</label>
+                        <input type="text" id="p_address" class="form-control" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Betriebserlaubnis (Nr.)</label>
+                            <input type="text" id="p_license" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Warenwirtschaftssystem</label>
+                            <input type="text" id="p_software" class="form-control" placeholder="z.B. CGM Lauer, Awinta">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="btn-profile"><i class="fas fa-save"></i> Systemdaten speichern</button>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const API_URL = "https://serviceapotheke-api-830781040278.europe-west3.run.app/api";
+        const PHARMACY_ID = localStorage.getItem('userId');
+        const TOKEN = localStorage.getItem('userToken') || localStorage.getItem('pharmacyToken');
+
+        function showToast(msg, type = "success") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> <span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 4000);
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.replace("https://serviceapotheke.tech/login.html?logout=true");
+        }
+
+        function showSection(id) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+            document.getElementById(`section-${id}`).classList.add('active');
+            
+            const activeNav = Array.from(document.querySelectorAll('.nav-item')).find(el => el.getAttribute('onclick').includes(id));
+            if (activeNav) activeNav.classList.add('active');
+            if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+
+            if (id === 'dashboard') loadDashboardData();
+            if (id === 'my-shifts') loadMyShifts();
+            if (id === 'applications') loadApplications();
+            if (id === 'invoices') loadInvoices();
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 1. Verify UI State
+            const pharmacyId = localStorage.getItem('userId');
+            const token = localStorage.getItem('userToken');
+
+            // Check if the old 'token' is present. If it is, the old login script was used.
+            // We must rely strictly on the secure HttpOnly cookie now.
+            if (!pharmacyId) {
+                window.location.replace("https://serviceapotheke.tech/login.html?logout=true");
+                return;
+            }
+
+            document.getElementById('currentDate').textContent = new Date().toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            await loadProfileData();
+            loadDashboardData();
+
+            const urlP = new URLSearchParams(window.location.search);
+            if(urlP.get('payment') === 'success') {
+                showToast("Zahlung erfolgreich verarbeitet. Status wurde aktualisiert.", "success");
+                window.history.replaceState({}, document.title, window.location.pathname);
+                showSection('invoices');
+            } else if(urlP.get('payment') === 'canceled') {
+                showToast("Zahlungsvorgang abgebrochen.", "error");
+                window.history.replaceState({}, document.title, window.location.pathname);
+                showSection('invoices');
+            }
+        });
+
+        async function loadProfileData() {
+            try {
+                const data = await ApiClient.get(`/Pharmacy/${PHARMACY_ID}`);
+                document.getElementById('userFullName').textContent = data.pharmacyName || "Apotheke";
+                document.getElementById('userEmail').textContent = data.email || "";
+                document.getElementById('userAvatar').textContent = data.pharmacyName ? data.pharmacyName.charAt(0).toUpperCase() : "A";
+                
+                document.getElementById('p_name').value = data.pharmacyName || '';
+                document.getElementById('p_phone').value = data.phoneNumber || '';
+                document.getElementById('p_address').value = data.address || '';
+                document.getElementById('p_license').value = data.licenseNumber || '';
+                document.getElementById('p_software').value = data.softwareSystem || '';
+            } catch (e) { showToast("Fehler beim Laden der Profildaten", "error"); }
+        }
+
+        async function loadDashboardData() {
+            try {
+                const shifts = await ApiClient.get(`/Job/pharmacy/${PHARMACY_ID}`);
+                const apps = await ApiClient.get(`/Job/JobApplication/pharmacy/${PHARMACY_ID}`);
+                
+                const activeShifts = shifts.length;
+                const pendingApps = apps.filter(a => a.status === 'Pending');
+                const totalBudget = shifts.reduce((sum, s) => sum + (s.salary || 0), 0);
+
+                document.getElementById('stat-vacancies').textContent = activeShifts;
+                document.getElementById('stat-candidates').textContent = pendingApps.length;
+                document.getElementById('stat-budget').textContent = totalBudget + " €";
+                
+                const badge = document.getElementById('applications-badge');
+                if (pendingApps.length > 0) { badge.textContent = pendingApps.length; badge.style.display = 'inline-block'; } 
+                else { badge.style.display = 'none'; }
+
+                renderAppTable(pendingApps, 'dashboard-urgent-list');
+            } catch (e) { document.getElementById('dashboard-urgent-list').innerHTML = "<p style='color:red;'>Daten konnten nicht geladen werden.</p>"; }
+        }
+
+        async function loadMyShifts() {
+            try {
+                const shifts = await ApiClient.get(`/Job/pharmacy/${PHARMACY_ID}`);
+                const container = document.getElementById('my-shifts-list');
+                
+                if (shifts.length === 0) {
+                    container.innerHTML = '<div style="padding:40px; text-align:center; background:white; border-radius:8px; border:1px solid #e2e8f0; color:#718096;">Keine Vakanzen ausgeschrieben.</div>';
+                    return;
+                }
+
+                let html = `<div class="data-table-wrapper"><table class="data-table"><thead><tr><th>Datum</th><th>Zeitraum</th><th>Tagesbudget</th><th>Resonanz</th></tr></thead><tbody>`;
+                shifts.forEach(s => {
+                    const d = s.startDate ? new Date(s.startDate).toLocaleDateString('de-DE') : '-';
+                    const startTime = s.startDate ? new Date(s.startDate).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'}) : '';
+                    const endTime = s.endDate ? new Date(s.endDate).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'}) : '';
+                    const c = s.jobApplications ? s.jobApplications.length : 0;
+                    html += `<tr><td><strong>${d}</strong></td><td>${startTime} - ${endTime}</td><td>${s.salary} €</td><td><span class="status-badge ${c > 0 ? 'status-pending' : 'status-completed'}">${c} Bewerber</span></td></tr>`;
+                });
+                container.innerHTML = html + `</tbody></table></div>`;
+            } catch (e) { showToast("Vakanzen-Fehler", "error"); }
+        }
+
+        async function loadApplications() {
+            try {
+                const apps = await ApiClient.get(`/Job/JobApplication/pharmacy/${PHARMACY_ID}`);
+                renderAppTable(apps, 'all-applications-list');
+            } catch (e) { document.getElementById('all-applications-list').innerHTML = "<p style='color:red;'>Ladefehler.</p>"; }
+        }
+
+        function renderAppTable(list, elementId) {
+            const container = document.getElementById(elementId);
+            if (!list || list.length === 0) {
+                container.innerHTML = '<div style="padding:40px; text-align:center; background:white; border-radius:8px; border:1px solid #e2e8f0; color:#718096;">Keine Vorgänge im Radar.</div>';
+                return;
+            }
+
+            let html = `<div class="data-table-wrapper"><table class="data-table"><thead><tr><th>Kandidaten-ID</th><th>Schicht-Datum</th><th>Status</th><th>Aktion</th></tr></thead><tbody>`;
+            list.forEach(a => {
+                let d = 'Prüfung...';
+                try {
+                    const rawDate = (a.jobPost && a.jobPost.startDate) ? a.jobPost.startDate : (a.startDate ? a.startDate : null);
+                    if (rawDate) { d = new Date(rawDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+                } catch(e) { d = 'Datumsfehler'; }
+
+                const sColor = a.status === 'Pending' ? 'status-pending' : (a.status === 'Accepted' ? 'status-accepted' : 'status-rejected');
+                const sText = a.status === 'Pending' ? 'Prüfung ausstehend' : (a.status === 'Accepted' ? 'Zusage erteilt' : 'Absage');
+                
+                html += `<tr>
+                    <td><strong>#APO-${a.pharmacistId || '0'}</strong></td>
+                    <td>${d}</td>
+                    <td><span class="status-badge ${sColor}">${sText}</span></td>
+                    <td>
+                        ${a.status === 'Pending' ? `
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn btn-success" style="padding: 5px 10px; font-size: 11px; width:auto;" onclick="updateAppStatus(${a.id}, 'Accepted')"><i class="fas fa-check"></i> Zusagen</button>
+                                <button class="btn btn-danger" style="padding: 5px 10px; font-size: 11px; width:auto;" onclick="updateAppStatus(${a.id}, 'Rejected')"><i class="fas fa-times"></i> Absagen</button>
+                            </div>
+                        ` : `<span style="color:#718096; font-size:12px;">Keine Aktion nötig</span>`}
+                    </td>
+                </tr>`;
+            });
+            container.innerHTML = html + `</tbody></table></div>`;
+        }
+
+        async function updateAppStatus(appId, newStatus) {
+            if(!confirm(`Möchten Sie diesem Bewerber verbindlich eine ${newStatus === 'Accepted' ? 'ZUSAGE' : 'ABSAGE'} erteilen?`)) return;
+            try {
+                await ApiClient.put(`/Job/JobApplication/${appId}/status`, { status: newStatus });
+                showToast(`Prozess abgeschlossen`, "success");
+                loadDashboardData();
+                if(document.getElementById('section-applications').classList.contains('active')) loadApplications();
+            } catch (e) { showToast("Systemfehler bei der Zuweisung", "error"); }
+        }
+
+        async function loadInvoices() {
+            const invContainer = document.getElementById('invoices-list');
+            const timeContainer = document.getElementById('pending-timesheets-list');
+            
+            const skeletonHtml = `
+                <div class="skeleton-wrapper">
+                    <div class="skeleton-card"><div class="skeleton-box" style="height:20px;width:60%;"></div><div class="skeleton-box" style="height:14px;width:40%;"></div><div class="skeleton-box" style="height:30px;width:100%;margin-top:auto;"></div></div>
+                    <div class="skeleton-card"><div class="skeleton-box" style="height:20px;width:60%;"></div><div class="skeleton-box" style="height:14px;width:40%;"></div><div class="skeleton-box" style="height:30px;width:100%;margin-top:auto;"></div></div>
+                    <div class="skeleton-card"><div class="skeleton-box" style="height:20px;width:60%;"></div><div class="skeleton-box" style="height:14px;width:40%;"></div><div class="skeleton-box" style="height:30px;width:100%;margin-top:auto;"></div></div>
+                </div>`;
+            invContainer.innerHTML = skeletonHtml;
+            timeContainer.innerHTML = skeletonHtml;
+
+            try {
+                // 1. Lade zu prüfende Zeiten (Timesheets)
+                const pendingTimesheets = await ApiClient.get(`/Timesheet/pending/pharmacy/${PHARMACY_ID}`);
+                if (!pendingTimesheets || pendingTimesheets.length === 0) {
+                    timeContainer.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-clipboard-check"></i>
+                            <h3>Keine Zeiten zur Prüfung</h3>
+                            <p>Aktuell liegen keine offenen Dienstzeiten zur Prüfung vor.</p>
+                        </div>`;
+                } else {
+                    let timeHtml = '<div class="grid-list">';
+                    pendingTimesheets.forEach(t => {
+                        const date = new Date(t.date).toLocaleDateString('de-DE');
+                        const start = t.startTime.substring(0,5);
+                        const end = t.endTime.substring(0,5);
+                        const spesen = t.travelCosts + t.accommodationCosts;
+                        
+                        timeHtml += `
+                            <div class="data-card">
+                                <div class="card-header">
+                                    <h4>${t.pharmacistName}</h4>
+                                    <span class="date">${date}</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="card-row"><span class="card-label">Zeitraum</span> <span class="card-value">${start} - ${end} (${t.totalHours.toFixed(2)}h)</span></div>
+                                    <div class="card-row"><span class="card-label">Spesen</span> <span class="card-value">${spesen.toFixed(2)} €</span></div>
+                                    <div class="card-row" style="margin-top: 8px;"><span class="card-label">Netto-Betrag</span> <span class="card-value amount">${t.totalExpected.toFixed(2)} €</span></div>
+                                </div>
+                                <div class="card-actions">
+                                    <button class="btn btn-success" style="width:100%; justify-content:center;" onclick="approveTimesheet(${t.id})">
+                                        <i class="fas fa-check"></i> Freigeben & Rechnung erstellen
+                                    </button>
+                                </div>
+                            </div>`;
+                    });
+                    timeContainer.innerHTML = timeHtml + '</div>';
+                }
+
+                // 2. Lade generierte Rechnungen
+                const invoices = await ApiClient.get(`/Invoice/pharmacy/${PHARMACY_ID}`);
+                if (!invoices || invoices.length === 0) {
+                    invContainer.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-file-invoice"></i>
+                            <h3>Keine Rechnungen vorhanden</h3>
+                            <p>Sobald Zeiten freigegeben wurden, erscheinen die Rechnungen hier.</p>
+                        </div>`;
+                    return;
+                }
+
+                let invHtml = '<div class="grid-list">';
+                invoices.forEach(inv => {
+                    const date = new Date(inv.createdAt).toLocaleDateString('de-DE');
+                    const isPaid = inv.status !== 'Unpaid';
+                    const statusBadge = isPaid ? `<span class="status-badge status-accepted">Bezahlt</span>` : `<span class="status-badge status-pending">Offen</span>`;
+                    
+                    const actionBtn = isPaid 
+                        ? `<button class="btn btn-outline" style="flex:1; justify-content:center;" onclick="downloadSecurePdf(${inv.id})"><i class="fas fa-download"></i> PDF</button>`
+                        : `<button class="btn btn-outline" style="flex:1; justify-content:center;" onclick="downloadSecurePdf(${inv.id})"><i class="fas fa-download"></i> PDF</button>
+                           <button class="btn btn-primary" style="flex:1; justify-content:center;" onclick="payInvoice(${inv.id})"><i class="fab fa-stripe"></i> Bezahlen</button>`;
+
+                    invHtml += `
+                        <div class="data-card">
+                            <div class="card-header">
+                                <h4>${inv.invoiceNumber}</h4>
+                                ${statusBadge}
+                            </div>
+                            <div class="card-body">
+                                <div class="card-row"><span class="card-label">Datum</span> <span class="card-value">${date}</span></div>
+                                <div class="card-row" style="margin-top: 8px;"><span class="card-label">Betrag (inkl. Service)</span> <span class="card-value amount">${inv.totalAmount.toFixed(2)} €</span></div>
+                            </div>
+                            <div class="card-actions" style="display:flex; gap:10px;">
+                                ${actionBtn}
+                            </div>
+                        </div>`;
+                });
+                invContainer.innerHTML = invHtml + '</div>';
+            } catch(e) { 
+                invContainer.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i>
+                        <h3 style="color:var(--danger)">Ladefehler</h3>
+                        <p>Die Daten konnten nicht abgerufen werden.</p>
+                    </div>`;
+            }
+        }
+
+        async function approveTimesheet(timesheetId) {
+            if(!confirm("Möchten Sie diese Zeiten freigeben? Es wird automatisch eine verbindliche Rechnung generiert.")) return;
+            try {
+                await ApiClient.post(`/Timesheet/${timesheetId}/approve`);
+                showToast("Zeiten freigegeben. Rechnung wurde erstellt.", "success");
+                loadInvoices(); // Läd die Ansicht neu, die neue Rechnung erscheint unten
+            } catch(e) {
+                showToast("Systemfehler bei der Freigabe", "error");
+            }
+        }
+
+        async function payInvoice(invoiceId) {
+            try {
+                const response = await ApiClient.post(`/Payment/checkout/${invoiceId}`);
+                if (response.url) {
+                    window.location.href = response.url;
+                }
+            } catch(e) { showToast("Fehler bei der Zahlungsinitialisierung", "error"); }
+        }
+
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-profile');
+            btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichert...';
+            try {
+                await ApiClient.put(`/Pharmacy/${PHARMACY_ID}`, {
+                    pharmacyName: document.getElementById('p_name').value,
+                    phoneNumber: document.getElementById('p_phone').value,
+                    address: document.getElementById('p_address').value,
+                    licenseNumber: document.getElementById('p_license').value,
+                    softwareSystem: document.getElementById('p_software').value
+                });
+                showToast("Systemdaten erfolgreich aktualisiert", "success");
+                loadProfileData();
+            } catch (e) { showToast("Fehler beim Speichern", "error"); }
+            finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Systemdaten speichern'; }
+        });
+
+        document.getElementById('createShiftForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-publish');
+            btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publiziert...';
+            try {
+                const dateVal = document.getElementById('s_date').value;
+                const startVal = document.getElementById('s_start').value;
+                const endVal = document.getElementById('s_end').value;
+                
+                await ApiClient.post(`/Job`, {
+                    pharmacyId: parseInt(PHARMACY_ID),
+                    title: "Apotheker/in gesucht",
+                    startDate: `${dateVal}T${startVal}:00`,
+                    endDate: `${dateVal}T${endVal}:00`,
+                    salary: parseFloat(document.getElementById('s_salary').value),
+                    description: document.getElementById('s_notes').value,
+                    requiredQualifications: ""
+                });
+                showToast("Vakanz in das globale Routing-System übergeben", "success");
+                e.target.reset();
+                loadDashboardData();
+                showSection('my-shifts');
+            } catch (e) { showToast("Fehler bei der Publikation", "error"); }
+            finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Vakanz freigeben'; }
+        });
+    </script>
+</body>
+</html>
+
+

@@ -1,0 +1,276 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using ServiceApotheke.API.Models;
+using ServiceApotheke.API.Data;
+using ServiceApotheke.API.Services;
+using System;
+using System.Threading.Tasks;
+using System.Linq;
+using Microsoft.AspNetCore.Http;
+
+namespace ServiceApotheke.API.Controllers
+{
+    [Authorize]
+    [ApiController]
+    [Route("api/[controller]")]
+    public class PharmacistController : ControllerBase
+    {
+        private readonly DataContext _context;
+        private readonly EmailService _emailService;
+
+        public PharmacistController(DataContext context, EmailService emailService)
+        {
+            _context = context;
+            _emailService = emailService;
+        }
+
+        [AllowAnonymous]
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] PharmacistRegDto registration)
+        {
+            if (await _context.Pharmacists.AnyAsync(p => p.Email == registration.Email))
+                return BadRequest(new { message = "Diese E-Mail-Adresse ist bereits registriert." });
+
+            string passwordHash = BCrypt.Net.BCrypt.HashPassword(registration.Password);
+            string token = new Random().Next(100000, 999999).ToString();
+
+            var pharmacist = new Pharmacist
+            {
+                FullName = registration.FullName,
+                Email = registration.Email,
+                PasswordHash = passwordHash,
+                PhoneNumber = registration.PhoneNumber,
+                Address = registration.Address,
+                EmailConfirmationToken = token,
+                IsEmailConfirmed = false,
+                
+                // Explicit initialization mapped to exact model types
+                IsVerified = false,
+                HasApprobation = false,
+                EmergencyServiceWillingness = false,
+                WeekendWillingness = false,
+                TravelWillingness = "",
+                ShortNoticeAvailability = "",
+                MaxDistanceKm = 0,
+                RadiusKm = 0,
+                ExperienceYears = "",
+                AvailableDaysPerWeek = 0,
+                ApprobationCountry = "",
+                AvailabilityType = "",
+                FeeModel = "",
+                Mobility = "",
+                PreferredContactMethod = "",
+                PreferredStates = "",
+                SoftwareExperience = "",
+                Specialties = "",
+                TravelExpenses = "",
+                VatSubject = ""
+            };
+
+            _context.Pharmacists.Add(pharmacist);
+
+            try 
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                Console.WriteLine($"[DB ERROR] {ex.InnerException?.Message ?? ex.Message}");
+                return StatusCode(500, new { message = "Ein Datenbankfehler ist aufgetreten.", details = ex.InnerException?.Message });
+            }
+
+            try 
+            {
+                string subject = "Ihr Aktivierungscode für ServiceApotheke";
+                string message = $"Willkommen bei ServiceApotheke!\n\nIhr 6-stelliger Aktivierungscode lautet: {token}\n\nBitte geben Sie diesen Code auf der Bestätigungsseite ein.";
+                await _emailService.SendEmailAsync(pharmacist.Email, subject, message);
+            } 
+            catch (Exception ex) 
+            {
+                Console.WriteLine($"[EMAIL ERROR] Konnte E-Mail nicht senden an {pharmacist.Email}: {ex.Message}");
+            }
+
+            return Ok(new { message = "Registrierung erfolgreich." });
+        }
+
+        [AllowAnonymous]
+        [HttpPost("confirm-email")]
+        public async Task<IActionResult> ConfirmEmail([FromBody] EmailConfirmDto model)
+        {
+            var user = await _context.Pharmacists.SingleOrDefaultAsync(u => u.Email == model.Email);
+            if (user == null || user.EmailConfirmationToken != model.Token) 
+                return BadRequest("Code ungültig oder abgelaufen.");
+            
+            user.IsEmailConfirmed = true;
+            user.EmailConfirmationToken = null;
+            await _context.SaveChangesAsync();
+            return Ok("Konto bestätigt.");
+        }
+
+        [AllowAnonymous]
+        [HttpPost("login")]
+        [EnableRateLimiting("LoginPolicy")]
+        public async Task<IActionResult> Login([FromBody] LoginDto login)
+        {
+            var user = await _context.Pharmacists.SingleOrDefaultAsync(p => p.Email == login.Email);
+            if (user == null || !BCrypt.Net.BCrypt.Verify(login.Password, user.PasswordHash))
+                return Unauthorized(new { message = "Ungültige Anmeldedaten." });
+            
+            var key = Encoding.UTF8.GetBytes("vTccveQUGQTOL56EI0X/o3R1wHtjIjoed0NusZ9fKoY="); 
+            var tokenDescriptor = new SecurityTokenDescriptor {
+                Subject = new ClaimsIdentity(new[] { new Claim("id", user.Id.ToString()), new Claim(ClaimTypes.Email, user.Email), new Claim(ClaimTypes.Role, "Pharmacist") }),
+                Expires = DateTime.UtcNow.AddHours(2),
+                Issuer = "ServiceApotheke.API",
+                Audience = "ServiceApotheke.Clients",
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+            var token = new JwtSecurityTokenHandler().CreateToken(tokenDescriptor);
+            var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+            
+            Response.Cookies.Append("jwt", tokenString, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.None, Expires = DateTime.UtcNow.AddHours(8) });
+            return Ok(new { id = user.Id.ToString(), fullName = user.FullName });
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetPharmacist(int id)
+        {
+            var user = await _context.Pharmacists.FindAsync(id);
+            if (user == null) return NotFound();
+            user.PasswordHash = string.Empty;
+            return Ok(user);
+        }
+
+        [HttpPut("{id}/profile")]
+        public async Task<IActionResult> UpdatePharmacistProfile(int id, [FromBody] PharmacistProfileUpdateDto dto)
+        {
+            var user = await _context.Pharmacists.FindAsync(id);
+            if (user == null) return NotFound();
+
+            user.FullName = dto.FullName ?? user.FullName;
+            user.PhoneNumber = dto.Phone ?? user.PhoneNumber;
+            user.Address = dto.Address ?? user.Address;
+            user.MaxDistanceKm = dto.MaxDistanceKm;
+            user.AvailableDaysPerWeek = dto.AvailableDaysPerWeek;
+            
+            await _context.SaveChangesAsync();
+            return Ok(user);
+        }
+
+        [HttpGet("{id}/all-shifts")]
+        public async Task<IActionResult> GetAllShifts(int id)
+        {
+            var apps = await _context.JobApplications
+                .Include(a => a.JobPost!)
+                    .ThenInclude(jp => jp.Pharmacy!)
+                .Where(a => a.PharmacistId == id && a.Status == "Accepted" && a.JobPost != null)
+                .ToListAsync();
+            return Ok(apps);
+        }
+
+        [HttpGet("{id}/upcoming-shifts")]
+        public async Task<IActionResult> GetUpcomingShifts(int id)
+        {
+            var apps = await _context.JobApplications
+                .Include(a => a.JobPost!)
+                    .ThenInclude(jp => jp.Pharmacy!)
+                .Where(a => a.PharmacistId == id && a.Status == "Accepted" && a.JobPost != null)
+                .ToListAsync();
+
+            var upcoming = apps.Where(a => a.Status == "Accepted" && a.JobPost!.StartDate > DateTime.UtcNow)
+                .Select(a => new {
+                    Id = a.Id,
+                    StartDate = a.JobPost!.StartDate,
+                    EndDate = a.JobPost.EndDate,
+                    Salary = a.JobPost.Salary,
+                    Title = a.JobPost.Title,
+                    PharmacyName = a.JobPost.Pharmacy!.PharmacyName
+                }).ToList();
+                
+            return Ok(upcoming);
+        }
+
+        [HttpGet("{id}/completed-shifts")]
+        public async Task<IActionResult> GetCompletedShifts(int id)
+        {
+            var apps = await _context.JobApplications
+                .Include(a => a.JobPost!)
+                    .ThenInclude(jp => jp.Pharmacy!)
+                .Where(a => a.PharmacistId == id && a.Status == "Accepted" && a.JobPost != null)
+                .ToListAsync();
+
+            var completed = apps.Where(a => a.Status == "Accepted" && a.JobPost!.EndDate < DateTime.UtcNow).ToList();
+            return Ok(completed);
+        }
+
+        [HttpPost("{id}/upload-cv")]
+        public async Task<IActionResult> UploadCv(int id, IFormFile file)
+        {
+            var user = await _context.Pharmacists.FindAsync(id);
+            if (user == null) return NotFound();
+            user.CvDocumentPath = file.FileName;
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        [HttpPost("{id}/upload-approbation")]
+        public async Task<IActionResult> UploadApprobation(int id, IFormFile file)
+        {
+            var user = await _context.Pharmacists.FindAsync(id);
+            if (user == null) return NotFound();
+
+            if (file == null || file.Length == 0)
+                return BadRequest("No file uploaded.");
+
+            var uploadsFolder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "uploads", "approbations");
+            if (!System.IO.Directory.Exists(uploadsFolder))
+                System.IO.Directory.CreateDirectory(uploadsFolder);
+
+            var fileName = $"{id}_{System.Guid.NewGuid()}_{file.FileName}";
+            var filePath = System.IO.Path.Combine(uploadsFolder, fileName);
+
+            using (var stream = new System.IO.FileStream(filePath, System.IO.FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // In a real app, you would save filePath to a specific column like ApprobationDocumentPath
+            // For now, we just set the boolean flag
+            user.HasApprobation = true;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Approbationsurkunde erfolgreich hochgeladen." });
+        }
+    }
+
+    public class EmailConfirmDto { public string Email { get; set; } = ""; public string Token { get; set; } = ""; }
+    
+    public class PharmacistProfileUpdateDto 
+    {
+        public string? FullName { get; set; }
+        public string? Phone { get; set; }
+        public string? Address { get; set; }
+        public int MaxDistanceKm { get; set; }
+        public int AvailableDaysPerWeek { get; set; }
+    }
+
+    public class PharmacistRegDto
+    {
+        public string FullName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+    }
+
+    public class LoginDto
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

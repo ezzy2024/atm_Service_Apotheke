@@ -1,0 +1,148 @@
+﻿===== FOLDER: C:\Users\ezzel\Projects\ServiceApotheke.API\Service_Apotheke_Frontend\Apotheker\js =====
+
+===== FILE: C:\Users\ezzel\Projects\ServiceApotheke.API\Service_Apotheke_Frontend\Apotheker\js\core.js =====
+// js/core.js (oben)
+const API_URL = "https://api.serviceapotheke.tech/api";
+
+const API_CONFIG = {
+    baseUrl: API_URL
+};
+
+
+class UI {
+    static init() {
+        if (!document.getElementById('toastContainer')) {
+            const container = document.createElement('div');
+            container.id = 'toastContainer';
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
+    }
+
+    static showToast(message, type = 'info', title = null) {
+        this.init();
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        const titles = { success: 'Erfolgreich', error: 'Systemfehler', info: 'Hinweis' };
+        const icons = { success: 'fa-check-circle', error: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+        
+        toast.innerHTML = `
+            <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
+            <div class="toast-content">
+                <div class="toast-title">${title || titles[type]}</div>
+                <div class="toast-message">${message}</div>
+            </div>
+            <button class="toast-close" onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;"><i class="fas fa-times"></i></button>
+        `;
+        container.appendChild(toast);
+        setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
+    }
+
+    static async confirm(message, config = {}) {
+        return new Promise(resolve => {
+            const overlay = document.createElement('div');
+            overlay.className = 'dialog-overlay';
+            overlay.innerHTML = `
+                <div class="dialog-content">
+                    <div class="dialog-title">${config.title || 'Aktion bestÃ¤tigen'}</div>
+                    <div style="color: var(--text-muted);">${message}</div>
+                    <div class="dialog-buttons">
+                        <button class="btn btn-outline" id="dialog-cancel">${config.cancelText || 'Abbrechen'}</button>
+                        <button class="btn ${config.danger ? 'btn-danger' : 'btn-primary'}" id="dialog-confirm">${config.confirmText || 'BestÃ¤tigen'}</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            document.getElementById('dialog-confirm').onclick = () => { overlay.remove(); resolve(true); };
+            document.getElementById('dialog-cancel').onclick = () => { overlay.remove(); resolve(false); };
+        });
+    }
+
+    static showLoader() {
+        if (document.getElementById('global-loader')) return;
+        const loader = document.createElement('div');
+        loader.id = 'global-loader';
+        loader.className = 'loading-overlay';
+        loader.innerHTML = '<i class="fas fa-spinner loading-spinner"></i><div style="font-weight:600; color:var(--primary);">System verarbeitet...</div>';
+        document.body.appendChild(loader);
+    }
+
+    static hideLoader() {
+        const loader = document.getElementById('global-loader');
+        if (loader) loader.remove();
+    }
+}
+
+class Auth {
+    static getToken() {
+        let token = localStorage.getItem('userToken') || localStorage.getItem('pharmacyToken');
+        if (token) return token.replace(/^"(.*)"$/, '$1').trim();
+        return null;
+    }
+
+    static getUserId() {
+        return localStorage.getItem('userId') || localStorage.getItem('pharmacyId');
+    }
+
+    static getUserType() {
+        return localStorage.getItem('userType');
+    }
+
+    static requireAuth(expectedType = null) {
+        const token = this.getToken();
+        const type = this.getUserType();
+        if (!token || (expectedType && type !== expectedType)) {
+            window.location.replace("login.html");
+            return false;
+        }
+        return true;
+    }
+
+    static logout() {
+        localStorage.clear();
+        window.location.replace("login.html");
+    }
+}
+
+class Api {
+    static async request(endpoint, options = {}) {
+        const url = `${API_CONFIG.baseUrl}${endpoint}`;
+        const headers = { 'Content-Type': 'application/json' };
+
+        const token = Auth.getToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (options.headers) Object.assign(headers, options.headers);
+
+        const config = { ...options, headers, credentials: options.credentials || 'include' };
+
+        if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+            config.body = JSON.stringify(options.body);
+        }
+        if (options.body instanceof FormData) {
+            delete headers['Content-Type'];
+        }
+
+        try {
+            const response = await fetch(url, config);
+            if (response.status === 401) {
+                Auth.logout();
+                throw new Error("Sitzung abgelaufen.");
+            }
+
+            const contentType = response.headers.get("content-type");
+            const data = contentType && contentType.includes("application/json") ? await response.json() : await response.text();
+
+            if (!response.ok) {
+                throw new Error(data.message || (typeof data === 'string' ? data : "Serverfehler"));
+            }
+            return data;
+        } catch (error) {
+            console.error(`[API Error] ${endpoint}:`, error);
+            throw error;
+        }
+    }
+}
+
+
+

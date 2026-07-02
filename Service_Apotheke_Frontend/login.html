@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="de" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sichere Anmeldung – ServiceApotheke</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="Service Apotheke.png">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background: #f4f7f9; display: flex; align-items: center; justify-content: center; height: 100vh; padding: 20px; }
+        .box { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 420px; border: 1px solid #e2e8f0; }
+        .logo-container { text-align: center; margin-bottom: 30px; }
+        .logo-icon { font-size: 40px; color: #0f2942; margin-bottom: 10px; }
+        h2 { text-align: center; margin-bottom: 25px; font-size: 24px; color: #0f2942; font-family: 'Merriweather', serif; }
+        .tabs { display: flex; margin-bottom: 25px; background: #f8fafc; border-radius: 6px; padding: 4px; border: 1px solid #e2e8f0; }
+        .tab { flex: 1; text-align: center; padding: 12px; cursor: pointer; border-radius: 4px; font-weight: 600; color: #718096; transition: all 0.2s; font-size: 14px; }
+        .tab.active { background: white; color: #0f2942; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #4a5568; text-transform: uppercase; letter-spacing: 0.5px;}
+        input { width: 100%; padding: 14px; margin-bottom: 20px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; background: #f8fafc; transition: all 0.2s; }
+        input:focus { border-color: #0f2942; outline: none; background: white; box-shadow: 0 0 0 3px rgba(15, 41, 66, 0.1); }
+        .btn { width: 100%; padding: 16px; background: #0f2942; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn:hover { background: #173d61; }
+        .btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+        .footer-links { text-align: center; margin-top: 25px; font-size: 14px; display: flex; flex-direction: column; gap: 10px; }
+        a { color: #0f2942; text-decoration: none; font-weight: 600; }
+        a:hover { text-decoration: underline; }
+        .toast { position: fixed; top: 20px; right: 20px; padding: 14px 20px; border-radius: 6px; color: #fff; opacity: 0; transform: translateX(100%); transition: 0.3s; z-index: 9999; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-weight: 500; }
+        .toast.show { opacity: 1; transform: translateX(0); }
+        .toast.success { background: #2f855a; }
+        .toast.error { background: #c53030; }
+    </style>
+</head>
+<body>
+
+<div id="toast" class="toast"></div>
+
+<div class="box">
+    <div class="logo-container">
+        <i class="fas fa-prescription-bottle-alt logo-icon"></i>
+    </div>
+    <h2>Portal-Login</h2>
+    
+    <div class="tabs">
+        <div id="t1" class="tab active" onclick="setRole('pharmacist')">Apotheker / PTA</div>
+        <div id="t2" class="tab" onclick="setRole('pharmacy')">Apotheke</div>
+    </div>
+
+    <label>E-Mail Adresse</label>
+    <input type="email" id="email" placeholder="mail@beispiel.de">
+    
+    <label>Passwort</label>
+    <input type="password" id="pass" placeholder="••••••••">
+    
+    <button class="btn" id="login-btn" onclick="login()">Sicher Anmelden</button>
+    
+    <div class="footer-links">
+        <a href="register.html">Noch kein Konto? Registrieren</a>
+        <a href="index.html" style="color:#718096; font-weight: 400;">Zurück zur Startseite</a>
+    </div>
+</div>
+
+<script>
+    const API_URL = "https://serviceapotheke-api-830781040278.europe-west3.run.app/api";
+    
+    // --- 1. ENDLOSSCHLEIFEN-BRECHER ---
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('logout') === 'true') {
+        localStorage.clear(); // Löscht den Speicher der Hauptseite komplett!
+        window.history.replaceState({}, document.title, window.location.pathname); // Entfernt ?logout aus der URL
+    }
+
+    // --- 2. AUTO-REDIRECT (Nur wenn Token noch existiert) ---
+    const storedToken = localStorage.getItem('userToken');
+    const storedType = localStorage.getItem('userType');
+    const storedId = localStorage.getItem('userId');
+
+    if (storedToken && storedToken !== 'undefined' && storedType) {
+        if (storedType === 'pharmacist') {
+            window.location.replace(`https://apothekern.serviceapotheke.tech/index.html?token=${storedToken}&id=${storedId}&type=${storedType}`);
+        } else {
+            window.location.replace(`https://apotheken.serviceapotheke.tech/index.html?token=${storedToken}&id=${storedId}&type=${storedType}`);
+        }
+    }
+
+    let role = "pharmacist";
+
+    function setRole(r) {
+        role = r;
+        document.getElementById('t1').classList.toggle('active', r === 'pharmacist');
+        document.getElementById('t2').classList.toggle('active', r === 'pharmacy');
+    }
+
+    function showToast(msg, type = "error") {
+        const toast = document.getElementById("toast");
+        toast.textContent = msg;
+        toast.className = `toast show ${type}`;
+        setTimeout(() => { toast.classList.remove('show'); }, 4000);
+    }
+
+    async function login() {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('pass').value.trim();
+        const btn = document.getElementById('login-btn');
+
+        if (!email || !password) {
+            showToast("Bitte füllen Sie alle Felder aus.", "error");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authentifizierung...';
+
+        const endpoint = role === "pharmacist" ? "Pharmacist/login" : "Pharmacy/login";
+
+        try {
+            const response = await fetch(`${API_URL}/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ email, password })
+            });
+
+            const textResponse = await response.text();
+            
+            if (!response.ok) {
+                let errorMsg = "Anmeldung fehlgeschlagen.";
+                try {
+                    const json = JSON.parse(textResponse);
+                    errorMsg = json.message || errorMsg;
+                } catch { errorMsg = textResponse || errorMsg; }
+                
+                if (response.status === 401 && errorMsg.includes("bestätigt")) {
+                    localStorage.setItem('regEmail', email);
+                    localStorage.setItem('regRole', role);
+                    window.location.href = "verify.html";
+                    return;
+                }
+                
+                showToast(errorMsg, "error");
+                btn.disabled = false;
+                btn.innerText = 'Sicher Anmelden';
+                return;
+            }
+
+            const result = JSON.parse(textResponse);
+            
+            // Lokales Speichern vor dem Weiterleiten
+            localStorage.setItem('userId', result.id);
+            localStorage.setItem('userToken', result.token);
+            localStorage.setItem('userType', role);
+
+            showToast("Login erfolgreich!", "success");
+            
+            setTimeout(() => { 
+                if (role === 'pharmacist') {
+                    window.location.replace(`https://apothekern.serviceapotheke.tech/?auth=success&id=${result.id}&type=${role}&token=${result.token}`);
+                } else {
+                    window.location.replace(`https://apotheken.serviceapotheke.tech/?auth=success&id=${result.id}&type=${role}&token=${result.token}`);
+                }
+            }, 800);
+            
+        } catch (err) {
+            showToast("Netzwerkfehler. Bitte prüfen Sie Ihre Verbindung.", "error");
+            btn.disabled = false;
+            btn.innerText = 'Sicher Anmelden';
+        }
+    }
+
+    document.getElementById('email').addEventListener('keypress', e => { if (e.key === 'Enter') login(); });
+    document.getElementById('pass').addEventListener('keypress', e => { if (e.key === 'Enter') login(); });
+</script>
+</body>
+</html>
