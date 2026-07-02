@@ -106,13 +106,16 @@ namespace ServiceApotheke.API.Controllers
         [Authorize]
         public IActionResult Logout()
         {
-            Response.Cookies.Append("jwt", "", new CookieOptions
+            var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.None,
                 Expires = DateTime.UtcNow.AddDays(-1)
-            });
+            };
+            if (Request.Host.Host.Contains("serviceapotheke.tech")) cookieOptions.Domain = ".serviceapotheke.tech";
+            
+            Response.Cookies.Append("jwt", "", cookieOptions);
 
             return Ok(new { message = "Successfully logged out." });
         }

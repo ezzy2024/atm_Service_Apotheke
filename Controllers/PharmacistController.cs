@@ -135,7 +135,9 @@ namespace ServiceApotheke.API.Controllers
             var token = new JwtSecurityTokenHandler().CreateToken(tokenDescriptor);
             var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
             
-            Response.Cookies.Append("jwt", tokenString, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.None, Expires = DateTime.UtcNow.AddHours(8) });
+            var cookieOptions = new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.None, Expires = DateTime.UtcNow.AddHours(8) };
+            if (Request.Host.Host.Contains("serviceapotheke.tech")) cookieOptions.Domain = ".serviceapotheke.tech";
+            Response.Cookies.Append("jwt", tokenString, cookieOptions);
             return Ok(new { id = user.Id.ToString(), fullName = user.FullName });
         }
 
