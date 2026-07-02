@@ -84,10 +84,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 // Only use cookies if the Authorization header is missing
                 if (!context.Request.Headers.ContainsKey("Authorization"))
                 {
-                    if (context.Request.Cookies.ContainsKey("auth_token"))
-                        context.Token = context.Request.Cookies["auth_token"];
-                    else if (context.Request.Cookies.ContainsKey("sa_auth"))
-                        context.Token = context.Request.Cookies["sa_auth"];
+                    if (context.Request.Cookies.ContainsKey("sa_auth_v2"))
+                        context.Token = context.Request.Cookies["sa_auth_v2"];
                 }
                 return Task.CompletedTask;
             }

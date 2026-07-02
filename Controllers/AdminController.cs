@@ -62,7 +62,7 @@ namespace ServiceApotheke.API.Controllers
         {
             var data = await _context.Pharmacies
                 .Where(p => !p.IsVerified)
-                .Select(p => new { p.Id, p.PharmacyName, p.Email, p.LicenseNumber, p.Address })
+                .Select(p => new { p.Id, p.PharmacyName, p.Email, p.LicenseNumber, Address = p.Street + " " + p.HouseNumber + ", " + p.PostalCode + " " + p.City })
                 .ToListAsync();
             return Ok(data);
         }

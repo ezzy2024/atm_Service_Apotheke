@@ -161,7 +161,7 @@ Der Einsatz erfolgt als freier Mitarbeiter (Honorarvertretung). Der Auftragnehme
                         newInvoice.Id, 
                         timesheet, 
                         pharmacy.PharmacyName, 
-                        pharmacy.Address, 
+                        pharmacy.Street + " " + pharmacy.HouseNumber + ", " + pharmacy.PostalCode + " " + pharmacy.City, 
                         pharmacy.ContactPerson ?? "Apothekenleitung"
                     );
 

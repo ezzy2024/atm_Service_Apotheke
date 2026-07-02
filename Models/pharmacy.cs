@@ -11,7 +11,10 @@ namespace ServiceApotheke.API.Models
         [Required] public string Email { get; set; } = string.Empty;
         [Required] public string PasswordHash { get; set; } = string.Empty;
         [Required] public string PhoneNumber { get; set; } = string.Empty;
-        public string Address { get; set; } = string.Empty;
+        public string Street { get; set; } = string.Empty;
+        public string HouseNumber { get; set; } = string.Empty;
+        public string PostalCode { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
         public string LicenseNumber { get; set; } = string.Empty;

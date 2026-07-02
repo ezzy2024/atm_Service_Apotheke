@@ -109,7 +109,7 @@ namespace ServiceApotheke.API.Controllers
             if (user == null || user.EmailConfirmationToken != model.Token) 
                 return BadRequest("Code ungültig oder abgelaufen.");
             
-            user.IsEmailConfirmed = true;
+            // user.IsEmailConfirmed = true; // Email confirmation must now be done via OTP
             user.EmailConfirmationToken = null;
             await _context.SaveChangesAsync();
             return Ok("Konto bestätigt.");
@@ -123,7 +123,10 @@ namespace ServiceApotheke.API.Controllers
             var user = await _context.Pharmacists.SingleOrDefaultAsync(p => p.Email == login.Email);
             if (user == null || !BCrypt.Net.BCrypt.Verify(login.Password, user.PasswordHash))
                 return Unauthorized(new { message = "Ungültige Anmeldedaten." });
-            
+
+            if (!user.IsEmailConfirmed)
+                return Unauthorized(new { message = "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse." });
+
             var key = Encoding.UTF8.GetBytes("vTccveQUGQTOL56EI0X/o3R1wHtjIjoed0NusZ9fKoY="); 
             var tokenDescriptor = new SecurityTokenDescriptor {
                 Subject = new ClaimsIdentity(new[] { new Claim("id", user.Id.ToString()), new Claim(ClaimTypes.Email, user.Email), new Claim(ClaimTypes.Role, "Pharmacist") }),
@@ -137,7 +140,7 @@ namespace ServiceApotheke.API.Controllers
             
             var cookieOptions = new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.None, Expires = DateTime.UtcNow.AddHours(8) };
             // cookieOptions.Domain = ".serviceapotheke.tech";
-            Response.Cookies.Append("sa_auth", tokenString, cookieOptions);
+            Response.Cookies.Append("sa_auth_v2", tokenString, cookieOptions);
             return Ok(new { id = user.Id.ToString(), fullName = user.FullName });
         }
 

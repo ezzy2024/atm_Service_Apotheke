@@ -85,7 +85,7 @@ namespace ServiceApotheke.API.Controllers
             var pharmacyName = invoice.Timesheet?.JobApplication?.JobPost?.Pharmacy?.PharmacyName;
             if (string.IsNullOrWhiteSpace(pharmacyName)) pharmacyName = "Unbekannt";
             
-            var pharmacyAddress = invoice.Timesheet?.JobApplication?.JobPost?.Pharmacy?.Address;
+            var pharmacyAddress = invoice.Timesheet?.JobApplication?.JobPost?.Pharmacy?.Street + " " + invoice.Timesheet?.JobApplication?.JobPost?.Pharmacy?.HouseNumber + ", " + invoice.Timesheet?.JobApplication?.JobPost?.Pharmacy?.PostalCode + " " + invoice.Timesheet?.JobApplication?.JobPost?.Pharmacy?.City;
             if (string.IsNullOrWhiteSpace(pharmacyAddress)) pharmacyAddress = "Unbekannt";
             
             var contactPerson = invoice.Timesheet?.JobApplication?.JobPost?.Pharmacy?.ContactPerson;

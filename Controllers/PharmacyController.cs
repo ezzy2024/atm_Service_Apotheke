@@ -43,7 +43,10 @@ namespace ServiceApotheke.API.Controllers
                 Email = registration.Email,
                 PasswordHash = passwordHash,
                 PhoneNumber = registration.PhoneNumber,
-                Address = registration.Address,
+                Street = registration.Street,
+                HouseNumber = registration.HouseNumber,
+                PostalCode = registration.PostalCode,
+                City = registration.City,
                 LicenseNumber = registration.LicenseNumber,
                 EmailConfirmationToken = token,
                 IsEmailConfirmed = false,
@@ -53,8 +56,8 @@ namespace ServiceApotheke.API.Controllers
                 InvoiceBillingPossible = false, 
                 ParkingAvailable = false,
                 ContactPerson = "",
-                SoftwareSystem = "",
-                FocusAreas = "",
+                SoftwareSystem = registration.SoftwareSystem,
+                FocusAreas = registration.Description,
                 StaffSupport = "",
                 TargetHourlyRate = null,
                 AccommodationProvided = ""
@@ -134,7 +137,7 @@ namespace ServiceApotheke.API.Controllers
             
             var cookieOptions = new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.None, Expires = DateTime.UtcNow.AddHours(8) };
             // cookieOptions.Domain = ".serviceapotheke.tech";
-            Response.Cookies.Append("sa_auth", tokenString, cookieOptions);
+            Response.Cookies.Append("sa_auth_v2", tokenString, cookieOptions);
 
             return Ok(new { 
                 id = pharmacy.Id.ToString(), 
@@ -160,7 +163,7 @@ namespace ServiceApotheke.API.Controllers
 
             pharmacy.PharmacyName = dto.PharmacyName ?? pharmacy.PharmacyName;
             pharmacy.PhoneNumber = dto.PhoneNumber ?? pharmacy.PhoneNumber;
-            pharmacy.Address = dto.Address ?? pharmacy.Address;
+            pharmacy.Street = dto.Street ?? pharmacy.Street; pharmacy.HouseNumber = dto.HouseNumber ?? pharmacy.HouseNumber; pharmacy.PostalCode = dto.PostalCode ?? pharmacy.PostalCode; pharmacy.City = dto.City ?? pharmacy.City;
             pharmacy.LicenseNumber = dto.LicenseNumber ?? pharmacy.LicenseNumber;
             pharmacy.SoftwareSystem = dto.SoftwareSystem ?? pharmacy.SoftwareSystem;
 
@@ -182,7 +185,7 @@ namespace ServiceApotheke.API.Controllers
 
             pharmacy.PharmacyName = dto.PharmacyName ?? pharmacy.PharmacyName;
             pharmacy.PhoneNumber = dto.PhoneNumber ?? pharmacy.PhoneNumber;
-            pharmacy.Address = dto.Address ?? pharmacy.Address;
+            pharmacy.Street = dto.Street ?? pharmacy.Street; pharmacy.HouseNumber = dto.HouseNumber ?? pharmacy.HouseNumber; pharmacy.PostalCode = dto.PostalCode ?? pharmacy.PostalCode; pharmacy.City = dto.City ?? pharmacy.City;
             pharmacy.LicenseNumber = dto.LicenseNumber ?? pharmacy.LicenseNumber;
             pharmacy.SoftwareSystem = dto.SoftwareSystem ?? pharmacy.SoftwareSystem;
             pharmacy.ContactPerson = dto.ContactPerson ?? pharmacy.ContactPerson;
@@ -196,7 +199,10 @@ namespace ServiceApotheke.API.Controllers
     {
         public string? PharmacyName { get; set; }
         public string? PhoneNumber { get; set; }
-        public string? Address { get; set; }
+        public string? Street { get; set; }
+        public string? HouseNumber { get; set; }
+        public string? PostalCode { get; set; }
+        public string? City { get; set; }
         public string? LicenseNumber { get; set; }
         public string? SoftwareSystem { get; set; }
         public string? ContactPerson { get; set; }
@@ -208,7 +214,12 @@ namespace ServiceApotheke.API.Controllers
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
-        public string Address { get; set; } = string.Empty;
+        public string Street { get; set; } = string.Empty;
+        public string HouseNumber { get; set; } = string.Empty;
+        public string PostalCode { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
         public string LicenseNumber { get; set; } = string.Empty;
+        public string SoftwareSystem { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
     }
 }

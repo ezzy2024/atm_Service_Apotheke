@@ -1,4 +1,4 @@
-ï»¿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.IO;
@@ -26,7 +26,7 @@ namespace ServiceApotheke.API.Controllers
             {
                 var headerLine = await reader.ReadLineAsync();
                 if (string.IsNullOrWhiteSpace(headerLine)) 
-                    return BadRequest(new { message = "UngÃ¼ltiges Dateiformat." });
+                    return BadRequest(new { message = "Ungültiges Dateiformat." });
 
                 var headers = headerLine.Split(new[] { ',', ';' }).Select(h => h.Trim().ToLower()).ToList();
                 
@@ -64,7 +64,7 @@ namespace ServiceApotheke.API.Controllers
                 }
             }
 
-            // pDL Netto-VergÃ¼tungssÃ¤tze (Stand 2026)
+            // pDL Netto-Vergütungssätze (Stand 2026)
             int polyRevenue = polyMedicationCount * 90;
             int inhalerRevenue = inhalerCount * 20;
             int bpRevenue = highBpCount * 11;

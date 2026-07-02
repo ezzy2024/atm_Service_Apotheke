@@ -142,7 +142,13 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<int>("PharmacyId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("ReasonForVacancy")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("RequiredQualifications")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequiredWws")
                         .HasColumnType("TEXT");
 
                     b.Property<decimal?>("Salary")
@@ -157,11 +163,53 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<string>("Title")
                         .HasColumnType("TEXT");
 
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("PharmacyId");
 
                     b.ToTable("JobPosts");
+                });
+
+            modelBuilder.Entity("ServiceApotheke.API.Models.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("ServiceApotheke.API.Models.Pharmacist", b =>
@@ -232,8 +280,14 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<bool>("IsVerified")
                         .HasColumnType("INTEGER");
 
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("REAL");
+
                     b.Property<string>("LiabilityInsuranceDocumentPath")
                         .HasColumnType("TEXT");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("REAL");
 
                     b.Property<int>("MaxDistanceKm")
                         .HasColumnType("INTEGER");
@@ -253,6 +307,10 @@ namespace ServiceApotheke.API.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("PreferredStates")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Qualification")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int>("RadiusKm")
@@ -284,6 +342,10 @@ namespace ServiceApotheke.API.Migrations
 
                     b.Property<bool>("WeekendWillingness")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("WwsProficiency")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -353,12 +415,12 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<string>("AccommodationProvided")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Address")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("ApiKey")
                         .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("City")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ContactPerson")
@@ -380,6 +442,10 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<string>("GdprAnonymizedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("HouseNumber")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("InvoiceBillingPossible")
                         .HasColumnType("INTEGER");
 
@@ -389,9 +455,15 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<bool>("IsVerified")
                         .HasColumnType("INTEGER");
 
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("REAL");
+
                     b.Property<string>("LicenseNumber")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("REAL");
 
                     b.Property<bool>("ParkingAvailable")
                         .HasColumnType("INTEGER");
@@ -409,13 +481,21 @@ namespace ServiceApotheke.API.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("PostalCode")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("SoftwareSystem")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("StaffSupport")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("TargetHourlyRate")
+                    b.Property<string>("Street")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("TargetHourlyRate")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");

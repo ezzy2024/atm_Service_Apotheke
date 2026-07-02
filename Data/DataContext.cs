@@ -119,6 +119,7 @@ namespace ServiceApotheke.API.Data
         public DbSet<Invoice> Invoices { get; set; }
         public DbSet<TemperatureLog> TemperatureLogs { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

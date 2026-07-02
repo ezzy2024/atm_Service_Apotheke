@@ -115,7 +115,7 @@ namespace ServiceApotheke.API.Controllers
             };
             // cookieOptions.Domain = ".serviceapotheke.tech";
             
-            Response.Cookies.Append("sa_auth", "", cookieOptions);
+            Response.Cookies.Append("sa_auth_v2", "", cookieOptions);
 
             return Ok(new { message = "Successfully logged out." });
         }
