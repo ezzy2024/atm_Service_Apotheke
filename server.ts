@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import PDFDocument from "pdfkit";
 import winston from "winston";
+import Stripe from "stripe";
 
 dotenv.config();
 
@@ -146,6 +147,8 @@ async function startServer() {
   }
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || "dummy-key");
+  
+  // Removed verifyDeviceToken
 
   // --- API Routes ---
   app.get("/api/health", (req, res) => {
@@ -154,10 +157,12 @@ async function startServer() {
 
   // 1. Consent API Endpoint
   app.post('/api/kiosk/consent', async (req, res) => {
-    try {
-      const { pharmacy_id, patient_name, health_insurance_name, health_insurance_number, signature_blob, ik_nummer, birth_date, status_field } = req.body;
+    const { pharmacy_id, patient_name, health_insurance_name, health_insurance_number, signature_blob, ik_nummer, birth_date, status_field } = req.body;
+    
+    if (!pharmacy_id) return res.status(400).json({ error: "Missing pharmacy_id" });
 
-      if (!pharmacy_id || !patient_name || !signature_blob || !health_insurance_name) {
+    try {
+      if (!patient_name || !signature_blob || !health_insurance_name) {
         return res.status(400).json({ error: 'Fehlende Pflichtfelder (inkl. health_insurance_name)' });
       }
 
@@ -190,24 +195,13 @@ async function startServer() {
 
   // 2. Billing API Endpoint (Neu für RLS Bypass)
   app.post('/api/kiosk/billing', async (req, res) => {
-    try {
-      const { consent_id, service_type, amount, date_of_service, sonderkennzeichen, executed_by_pharmacist_name, pharmacy_id: body_pharmacy_id } = req.body;
+    const { pharmacy_id, consent_id, service_type, amount, date_of_service, sonderkennzeichen, executed_by_pharmacist_name } = req.body;
+    
+    if (!pharmacy_id) return res.status(400).json({ error: "Missing pharmacy_id" });
 
+    try {
       if (!consent_id || !service_type) {
         return res.status(400).json({ error: 'Fehlende Pflichtfelder für Abrechnung' });
-      }
-
-      // Resolve pharmacy_id from consent_agreements if not provided in body to keep database records complete
-      let pharmacy_id = body_pharmacy_id;
-      if (!pharmacy_id) {
-        const { data: consentData, error: consentErr } = await supabaseAdmin
-          .from('consent_agreements')
-          .select('pharmacy_id')
-          .eq('id', consent_id)
-          .single();
-        if (!consentErr && consentData) {
-          pharmacy_id = consentData.pharmacy_id;
-        }
       }
 
       const { data, error } = await supabaseAdmin
@@ -229,9 +223,39 @@ async function startServer() {
         return res.status(500).json({ error: error.message });
       }
       
-      res.status(200).json({ success: true, billing_id: data.id });
+      res.status(200).json({ success: true, record_id: data.id });
     } catch (error: any) {
       logger.error("Server error inserting billing record:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Telemetry API Endpoint
+  app.post('/api/kiosk/telemetry', async (req, res) => {
+    try {
+      const { pharmacy_id, session_id, event_type } = req.body;
+      
+      if (!pharmacy_id) return res.status(400).json({ error: 'Fehlende pharmacy_id' });
+      if (!session_id || !event_type) {
+        return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
+      }
+
+      const { error } = await supabaseAdmin
+        .from('session_telemetry')
+        .insert([{
+          session_id,
+          pharmacy_id,
+          event_type
+        }]);
+
+      if (error) {
+        logger.error("Error inserting telemetry:", error);
+        return res.status(500).json({ error: error.message });
+      }
+      
+      res.status(200).json({ success: true });
+    } catch (error: any) {
+      logger.error("Server error inserting telemetry:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -239,8 +263,9 @@ async function startServer() {
   // 2.5 Generate PDF Clinical Report (Anamnese-Protokoll)
   app.post('/api/kiosk/generate-report', async (req, res) => {
     try {
-      const { consent_id, billing_id, triage_data } = req.body;
-
+      const { pharmacy_id, consent_id, billing_id, triage_data } = req.body;
+      
+      if (!pharmacy_id) return res.status(400).json({ error: "Missing pharmacy_id" });
       if (!consent_id || !triage_data) {
         return res.status(400).json({ error: 'Fehlende Pflichtfelder (consent_id oder triage_data)' });
       }
@@ -294,6 +319,84 @@ async function startServer() {
 
       res.status(200).json({ success: true, file_path: filePath });
     } catch (error: any) {
+      logger.error('Server error generating report:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // POST /api/billing/generate-summary (Phase 3 Requirement)
+  app.post('/api/billing/generate-summary', async (req, res) => {
+    try {
+      const { appointment_id, consent_id, pharmacy_id, triage_data } = req.body;
+      const targetId = appointment_id || consent_id; // Tolerate both naming conventions
+
+      if (!targetId || !pharmacy_id) {
+        return res.status(400).json({ error: "Missing appointment_id/consent_id or pharmacy_id" });
+      }
+
+      // Validate JWT
+      const authHeader = req.headers.authorization;
+      if (!authHeader) return res.status(401).json({ error: "Unauthorized" });
+
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+      if (authError || !user) {
+        return res.status(401).json({ error: "Unauthorized / Invalid JWT" });
+      }
+
+      // Check user_pharmacy_roles for authorization
+      const { data: role, error: roleError } = await supabaseAdmin
+        .from('user_pharmacy_roles')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('pharmacy_id', pharmacy_id)
+        .single();
+
+      if (roleError || !role) {
+        return res.status(403).json({ error: "Forbidden - Not authorized for this pharmacy" });
+      }
+
+      // Fetch patient info
+      const { data: patient, error: patientErr } = await supabaseAdmin
+        .from('consent_agreements')
+        .select('*')
+        .eq('id', targetId)
+        .single();
+
+      if (patientErr || !patient) {
+        return res.status(404).json({ error: 'Patientendaten/Einverständnis nicht gefunden' });
+      }
+
+      // Generate the PDF Buffer
+      const pdfBuffer = await generateAnamnesePDF(patient, triage_data || {});
+
+      // Ensure storage bucket exists
+      await supabaseAdmin.storage.createBucket('billing_documentation', { public: false }).catch(() => {});
+
+      // Upload generated PDF to Supabase Storage
+      const filePath = `reports/${pharmacy_id}/${targetId}.pdf`;
+      const { error: uploadErr } = await supabaseAdmin.storage
+        .from('billing_documentation')
+        .upload(filePath, pdfBuffer, {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+
+      if (uploadErr) {
+        logger.error('Error uploading billing summary:', uploadErr);
+        return res.status(500).json({ error: `Upload fehlgeschlagen: ${uploadErr.message}` });
+      }
+
+      // Link PDF path to the billing record if exists
+      await supabaseAdmin
+        .from('billing_records')
+        .update({ report_path: filePath })
+        .eq('consent_id', targetId);
+
+      res.status(200).json({ success: true, file_path: filePath });
+
+    } catch (error: any) {
       logger.error('Server error generating clinical report:', error);
       res.status(500).json({ error: error.message });
     }
@@ -345,20 +448,104 @@ async function startServer() {
 
   app.get("/api/admin/billing", async (req, res) => {
     try {
-      const { pharmacy_id } = req.query;
-      let query = supabaseAdmin.from("billing_records").select("*, consent_agreements(*)");
+      const { pharmacy_id, page = '1', limit = '10', start_date, end_date } = req.query;
+      let query = supabaseAdmin.from("billing_records").select("*, consent_agreements(*)", { count: 'exact' });
       
       if (pharmacy_id) {
         query = query.eq("pharmacy_id", pharmacy_id);
       }
+      if (start_date) {
+        query = query.gte("created_at", start_date);
+      }
+      if (end_date) {
+        query = query.lte("created_at", end_date);
+      }
 
-      const { data, error } = await query.order("created_at", { ascending: false });
+      const pageNum = parseInt(page as string, 10);
+      const limitNum = parseInt(limit as string, 10);
+      const from = (pageNum - 1) * limitNum;
+      const to = from + limitNum - 1;
+
+      const { data, count, error } = await query.order("created_at", { ascending: false }).range(from, to);
 
       if (error) {
         return res.status(500).json({ error: error.message });
       }
 
-      res.json(data);
+      res.json({ data, total: count, page: pageNum, limit: limitNum });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/billing/export", async (req, res) => {
+    try {
+      const { pharmacy_id, start_date, end_date } = req.query;
+      if (!pharmacy_id) return res.status(400).json({ error: "Missing pharmacy_id" });
+
+      let query = supabaseAdmin.from("billing_records").select("*, consent_agreements(*)");
+      query = query.eq("pharmacy_id", pharmacy_id);
+      
+      if (start_date) query = query.gte("created_at", start_date);
+      if (end_date) query = query.lte("created_at", end_date);
+
+      const { data, error } = await query.order("created_at", { ascending: false });
+      if (error) throw error;
+
+      // ARZ CSV Format: Zeitstempel, IK_Nummer, KVNR, Geburtsdatum, Leistungscode (Sonderkennzeichen), Betrag
+      const csvRows = ["Zeitstempel;IK_Nummer;KVNR;Geburtsdatum;Leistungscode;Betrag"];
+      
+      if (data) {
+        for (const row of data) {
+          const consent = row.consent_agreements;
+          if (!consent) continue;
+          const dateStr = new Date(row.created_at).toISOString().split('T')[0];
+          csvRows.push(`${dateStr};${consent.ik_number};${consent.health_insurance_number};${consent.birth_date};${row.sonderkennzeichen};${row.amount}`);
+        }
+      }
+
+      const csvString = csvRows.join("\n");
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="arz_abrechnung_export.csv"');
+      res.send(csvString);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/telemetry/stats", async (req, res) => {
+    try {
+      const { pharmacy_id } = req.query;
+      if (!pharmacy_id) return res.status(400).json({ error: "Missing pharmacy_id" });
+
+      const { data, error } = await supabaseAdmin
+        .from('session_telemetry')
+        .select('*')
+        .eq('pharmacy_id', pharmacy_id);
+
+      if (error) throw error;
+
+      const sessionsStarted = data.filter((e: any) => e.event_type === 'SESSION_STARTED').length;
+      const sessionsCompleted = data.filter((e: any) => e.event_type === 'SESSION_COMPLETED').length;
+      const sessionsAborted = data.filter((e: any) => e.event_type === 'SESSION_ABORTED').length;
+      
+      // Calculate conversion rate
+      const successRate = sessionsStarted > 0 ? (sessionsCompleted / sessionsStarted) * 100 : 0;
+      
+      // Calculate drop-off points
+      let dropTriage = 0, dropConsent = 0, dropService = 0;
+      data.filter((e: any) => e.event_type === 'SESSION_ABORTED').forEach((e: any) => {
+         // simplified metric: we assume they dropped at the step prior to abort if we mapped it, 
+         // but since we only have ABORTED, we can infer drop-offs via funnel analysis.
+      });
+
+      res.json({
+        total_sessions: sessionsStarted,
+        completed_sessions: sessionsCompleted,
+        aborted_sessions: sessionsAborted,
+        success_rate: successRate.toFixed(1),
+        // average duration could be calculated by matching session_ids...
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -447,16 +634,133 @@ async function startServer() {
 
   app.get("/api/admin/pharmacies", async (req, res) => {
     try {
-      const { data, error } = await supabaseAdmin
-        .from("pharmacies")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabaseAdmin.from("pharmacies").select("*");
+      if (error) return res.status(500).json({ error: error.message });
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
-      if (error) {
-        return res.status(500).json({ error: error.message });
+  // --- Zero-Touch Provisioning (Pairing) ---
+
+  // 1. Admin generates a code
+  app.post("/api/admin/terminals/pair", async (req, res) => {
+    try {
+      const { pharmacy_id } = req.body;
+      if (!pharmacy_id) return res.status(400).json({ error: "pharmacy_id is required" });
+
+      const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digits
+      // expires in 15 mins
+      const expiresAt = new Date(Date.now() + 15 * 60000).toISOString();
+
+      const { data, error } = await supabaseAdmin
+        .from("pairing_codes")
+        .insert([{ pharmacy_id, code, expires_at: expiresAt }])
+        .select("code")
+        .single();
+
+      if (error) return res.status(500).json({ error: error.message });
+      res.json({ success: true, code: data.code });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 2. Kiosk redeems a code for a token
+  app.post("/api/kiosk/authenticate", async (req, res) => {
+    try {
+      const { code, terminal_name } = req.body;
+      if (!code || !terminal_name) return res.status(400).json({ error: "code and terminal_name required" });
+
+      // Find valid code
+      const { data: codeData, error: codeErr } = await supabaseAdmin
+        .from("pairing_codes")
+        .select("*")
+        .eq("code", code)
+        .gte("expires_at", new Date().toISOString())
+        .single();
+
+      if (codeErr || !codeData) {
+        return res.status(400).json({ error: "Invalid or expired code" });
       }
 
+      // Generate token
+      const deviceToken = "atm_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
+
+      // Create terminal
+      const { data: terminalData, error: terminalErr } = await supabaseAdmin
+        .from("kiosk_terminals")
+        .insert([{
+          pharmacy_id: codeData.pharmacy_id,
+          name: terminal_name,
+          device_token: deviceToken,
+          status: 'active'
+        }])
+        .select("*")
+        .single();
+
+      if (terminalErr) return res.status(500).json({ error: terminalErr.message });
+
+      // Delete the used code
+      await supabaseAdmin.from("pairing_codes").delete().eq("id", codeData.id);
+
+      res.json({ success: true, device_token: deviceToken, terminal: terminalData });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 3. Admin lists terminals
+  app.get("/api/admin/terminals", async (req, res) => {
+    try {
+      const { pharmacy_id } = req.query;
+      if (!pharmacy_id) return res.status(400).json({ error: "pharmacy_id required" });
+
+      const { data, error } = await supabaseAdmin
+        .from("kiosk_terminals")
+        .select("*")
+        .eq("pharmacy_id", pharmacy_id)
+        .order("created_at", { ascending: false });
+
+      if (error) return res.status(500).json({ error: error.message });
       res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 4. Admin revokes a terminal
+  app.delete("/api/admin/terminals/:id", async (req, res) => {
+    try {
+      const { error } = await supabaseAdmin
+        .from("kiosk_terminals")
+        .update({ status: 'revoked' })
+        .eq("id", req.params.id);
+
+      if (error) return res.status(500).json({ error: error.message });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // AVV Accept Endpoint
+  app.post("/api/admin/accept-avv", async (req, res) => {
+    try {
+      const { pharmacy_id } = req.body;
+      if (!pharmacy_id) return res.status(400).json({ error: "pharmacy_id is required" });
+
+      const timestamp = new Date().toISOString();
+      const { data, error } = await supabaseAdmin
+        .from("pharmacies")
+        .update({ avv_akzeptiert_am: timestamp })
+        .eq("id", pharmacy_id)
+        .select("avv_akzeptiert_am")
+        .single();
+
+      if (error) return res.status(500).json({ error: error.message });
+      res.json({ success: true, avv_akzeptiert_am: data.avv_akzeptiert_am });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -674,13 +978,15 @@ async function startServer() {
         return res.status(400).json({ error: "Missing email or pharmacy_id" });
       }
 
+      const origin = req.headers.origin || process.env.VITE_SITE_URL || "http://localhost:4000";
+      
       // Invite user through Supabase Auth
       const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
         data: {
           role: "pharmacist",
           pharmacy_id: pharmacy_id
         },
-        redirectTo: "https://atm-service-apotheke.onrender.com/login"
+        redirectTo: `${origin}/login`
       });
 
       if (error) {
@@ -743,62 +1049,59 @@ async function startServer() {
     }
   });
 
-  // Billing Export Endpoint (NNF / ARZ Format)
+  // SKZ Labels mapping
+  const SKZ_LABELS: Record<string, string> = {
+    "19816342": "Kombileistung (Ersteinschätzung + Video)",
+    "19816313": "Nur Ersteinschätzung",
+    "19816336": "Nur Videosprechstunde"
+  };
+
+  // Helper function to aggregate billing data
+  const getBillingAggregation = async (pharmacy_id: string, month: string) => {
+    const startDate = `${month}-01`;
+    const nextMonth = new Date(startDate);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const endDate = nextMonth.toISOString().split('T')[0];
+
+    const { data: pharmacy, error: pharmErr } = await supabaseAdmin
+      .from("pharmacies")
+      .select("name, ik_number, bsnr")
+      .eq("id", pharmacy_id)
+      .single();
+
+    if (pharmErr) throw new Error("Pharmacy not found");
+
+    const { data: records, error: recordsErr } = await supabaseAdmin
+      .from("billing_records")
+      .select("*")
+      .eq("pharmacy_id", pharmacy_id)
+      .gte("date_of_service", startDate)
+      .lt("date_of_service", endDate);
+
+    if (recordsErr) throw new Error(recordsErr.message);
+
+    const aggregation: Record<string, { count: number; total_amount: number; single_amount: number }> = {};
+    records.forEach(record => {
+      const skz = record.sonderkennzeichen;
+      if (!aggregation[skz]) {
+        aggregation[skz] = { count: 0, total_amount: 0, single_amount: Number(record.amount) };
+      }
+      aggregation[skz].count += 1;
+      aggregation[skz].total_amount += Number(record.amount);
+    });
+
+    return { pharmacy, aggregation, month };
+  };
+
+  // 1. Billing Export Endpoint (JSON)
   app.get("/api/admin/billing/export/:pharmacy_id", async (req, res) => {
     try {
       const { pharmacy_id } = req.params;
-      const { month } = req.query; // format: YYYY-MM
-      
-      if (!month || typeof month !== 'string') {
-        return res.status(400).json({ error: "Month parameter (YYYY-MM) is required" });
-      }
+      const { month } = req.query;
+      if (!month || typeof month !== 'string') return res.status(400).json({ error: "Month parameter (YYYY-MM) is required" });
 
-      const startDate = `${month}-01`;
-      // Get the last day of the month by going to the first day of the next month and subtracting one day
-      const nextMonth = new Date(startDate);
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
-      const endDate = nextMonth.toISOString().split('T')[0];
+      const { pharmacy, aggregation } = await getBillingAggregation(pharmacy_id, month);
 
-      // Fetch the pharmacy details for the IK number
-      const { data: pharmacy, error: pharmErr } = await supabaseAdmin
-        .from("pharmacies")
-        .select("ik_number")
-        .eq("id", pharmacy_id)
-        .single();
-
-      if (pharmErr) {
-        return res.status(500).json({ error: "Pharmacy not found" });
-      }
-
-      // Fetch all billing records for the given month
-      const { data: records, error: recordsErr } = await supabaseAdmin
-        .from("billing_records")
-        .select("*")
-        .eq("pharmacy_id", pharmacy_id)
-        .gte("date_of_service", startDate)
-        .lt("date_of_service", endDate);
-
-      if (recordsErr) {
-        return res.status(500).json({ error: recordsErr.message });
-      }
-
-      // Aggregate records by Sonderkennzeichen
-      const aggregation: Record<string, { count: number; total_amount: number; single_amount: number }> = {};
-
-      records.forEach(record => {
-        const skz = record.sonderkennzeichen;
-        if (!aggregation[skz]) {
-          aggregation[skz] = {
-            count: 0,
-            total_amount: 0,
-            single_amount: Number(record.amount)
-          };
-        }
-        aggregation[skz].count += 1;
-        aggregation[skz].total_amount += Number(record.amount);
-      });
-
-      // Build ARZ/NNF compliant JSON structure
       const exportData = {
         Abrechnungs_Metadaten: {
           IK_Apotheke: pharmacy.ik_number,
@@ -809,8 +1112,7 @@ async function startServer() {
         },
         Leistungsdatensaetze: Object.entries(aggregation).map(([skz, data]) => ({
           Sonderkennzeichen: skz,
-          Bezeichnung: skz === "19816342" ? "Kombileistung (Ersteinschätzung + Video)" : 
-                       skz === "19816313" ? "Nur Ersteinschätzung" : "Nur Videosprechstunde",
+          Bezeichnung: SKZ_LABELS[skz] || "Unbekannt",
           Anzahl_Leistungen: data.count,
           Verguetung_Einzel_EUR: data.single_amount.toFixed(2),
           Verguetung_Gesamt_EUR: data.total_amount.toFixed(2)
@@ -820,8 +1122,246 @@ async function startServer() {
 
       res.json(exportData);
     } catch (error: any) {
-      logger.error("Billing export error:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 2. Billing Export Endpoint (CSV)
+  app.get("/api/admin/billing/export-csv/:pharmacy_id", async (req, res) => {
+    try {
+      const { pharmacy_id } = req.params;
+      const { month } = req.query;
+      if (!month || typeof month !== 'string') return res.status(400).json({ error: "Month required" });
+
+      const { pharmacy, aggregation } = await getBillingAggregation(pharmacy_id, month);
+
+      let csvContent = "\uFEFF"; // UTF-8 BOM
+      csvContent += "IK_Apotheke;Abrechnungsmonat;Sonderkennzeichen;Bezeichnung;Anzahl;Einzelbetrag_EUR;Gesamtbetrag_EUR\n";
+
+      let totalSum = 0;
+      let totalCount = 0;
+
+      Object.entries(aggregation).forEach(([skz, data]) => {
+        const label = SKZ_LABELS[skz] || "Unbekannt";
+        csvContent += `${pharmacy.ik_number};${month};${skz};${label};${data.count};${data.single_amount.toFixed(2)};${data.total_amount.toFixed(2)}\n`;
+        totalSum += data.total_amount;
+        totalCount += data.count;
+      });
+
+      csvContent += `;;;GESAMT;${totalCount};;${totalSum.toFixed(2)}\n`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="NNF_Abrechnung_${pharmacy.ik_number}_${month}.csv"`);
+      res.send(csvContent);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 3. Billing Export Endpoint (PDF)
+  app.get("/api/admin/billing/export-pdf/:pharmacy_id", async (req, res) => {
+    try {
+      const { pharmacy_id } = req.params;
+      const { month } = req.query;
+      if (!month || typeof month !== 'string') return res.status(400).json({ error: "Month required" });
+
+      const { pharmacy, aggregation } = await getBillingAggregation(pharmacy_id, month);
+
+      const doc = new PDFDocument({ margin: 50 });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Sonderbeleg_${pharmacy.ik_number}_${month}.pdf"`);
+      doc.pipe(res);
+
+      // Header
+      doc.fontSize(20).text("Sonderbeleg für Telemedizinische Leistungen (aTM)", { align: 'center' });
+      doc.moveDown(2);
+
+      // Pharmacy Info
+      doc.fontSize(12).font('Helvetica-Bold').text("Apotheke:");
+      doc.font('Helvetica').text(pharmacy.name || "Service Apotheke");
+      doc.text(`IK-Nummer: ${pharmacy.ik_number || "Nicht hinterlegt"}`);
+      doc.text(`BSNR: ${pharmacy.bsnr || "Nicht hinterlegt"}`);
+      doc.text(`Abrechnungsmonat: ${month}`);
+      doc.text(`Erstellungsdatum: ${new Date().toLocaleDateString('de-DE')}`);
+      doc.moveDown(2);
+
+      // Table Header
+      const startY = doc.y;
+      doc.font('Helvetica-Bold');
+      doc.text("Sonderkennzeichen", 50, startY, { width: 120 });
+      doc.text("Bezeichnung", 180, startY, { width: 200 });
+      doc.text("Anzahl", 390, startY, { width: 50, align: 'right' });
+      doc.text("Gesamt (€)", 450, startY, { width: 90, align: 'right' });
+      
+      doc.moveTo(50, startY + 15).lineTo(540, startY + 15).stroke();
+      
+      let currentY = startY + 25;
+      let totalSum = 0;
+
+      // Table Body
+      doc.font('Helvetica');
+      Object.entries(aggregation).forEach(([skz, data]) => {
+        doc.text(skz, 50, currentY, { width: 120 });
+        doc.text(SKZ_LABELS[skz] || "Unbekannt", 180, currentY, { width: 200 });
+        doc.text(data.count.toString(), 390, currentY, { width: 50, align: 'right' });
+        doc.text(data.total_amount.toFixed(2), 450, currentY, { width: 90, align: 'right' });
+        
+        totalSum += data.total_amount;
+        currentY += 20;
+      });
+
+      doc.moveTo(50, currentY).lineTo(540, currentY).stroke();
+      currentY += 10;
+
+      // Total
+      doc.font('Helvetica-Bold');
+      doc.text("Gesamtsumme:", 280, currentY, { width: 160, align: 'right' });
+      doc.text(totalSum.toFixed(2) + " €", 450, currentY, { width: 90, align: 'right' });
+
+      doc.moveDown(4);
+
+      // Footer
+      doc.font('Helvetica').fontSize(10).text("Rechtsgrundlage: § 129 SGB V", 50, doc.y);
+      doc.moveDown(4);
+      
+      doc.moveTo(50, doc.y).lineTo(250, doc.y).stroke();
+      doc.moveDown(0.5);
+      doc.text("Ort, Datum, Unterschrift Apothekenleitung", 50, doc.y);
+
+      doc.end();
+    } catch (error: any) {
+      if (!res.headersSent) res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Stripe Setup
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder", {
+    apiVersion: '2025-01-27.acacia',
+  });
+
+  // Stripe Checkout Endpoint
+  app.post("/api/stripe/create-checkout-session", async (req, res) => {
+    try {
+      const { pharmacy_id } = req.body;
+      const priceId = process.env.STRIPE_PRICE_ID || "price_placeholder";
+      
+      const session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        payment_method_types: ["card", "sepa_debit"],
+        client_reference_id: pharmacy_id,
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        success_url: `${req.headers.origin}/admin?session_id={CHECKOUT_SESSION_ID}&stripe_success=true`,
+        cancel_url: `${req.headers.origin}/onboarding`,
+      });
+      res.json({ checkout_url: session.url });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Stripe Customer Portal Endpoint
+  app.post("/api/stripe/portal-session", async (req, res) => {
+    try {
+      const { pharmacy_id } = req.body;
+      
+      const { data: pharmacy } = await supabaseAdmin
+        .from("pharmacies")
+        .select("stripe_customer_id")
+        .eq("id", pharmacy_id)
+        .single();
+        
+      if (!pharmacy?.stripe_customer_id) {
+        return res.status(400).json({ error: "No active subscription found" });
+      }
+
+      const portalSession = await stripe.billingPortal.sessions.create({
+        customer: pharmacy.stripe_customer_id,
+        return_url: `${req.headers.origin}/admin`,
+      });
+      res.json({ portal_url: portalSession.url });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Stripe Webhook Endpoint
+  app.post("/api/stripe/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET || "whsec_placeholder"
+      );
+    } catch (err: any) {
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object;
+          const pharmacyId = session.client_reference_id;
+          const customerId = session.customer;
+          const subscriptionId = session.subscription;
+
+          if (pharmacyId) {
+            await supabaseAdmin
+              .from('pharmacies')
+              .update({
+                stripe_customer_id: customerId,
+                subscription_status: 'active'
+              })
+              .eq('id', pharmacyId);
+
+            await supabaseAdmin
+              .from('subscriptions')
+              .insert({
+                pharmacy_id: pharmacyId,
+                stripe_subscription_id: subscriptionId,
+                stripe_price_id: process.env.STRIPE_PRICE_ID || "price_placeholder",
+                status: 'active'
+              });
+          }
+          break;
+        }
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object;
+          await supabaseAdmin
+            .from('subscriptions')
+            .update({
+              status: subscription.status,
+              current_period_end: new Date(subscription.current_period_end * 1000).toISOString()
+            })
+            .eq('stripe_subscription_id', subscription.id);
+            
+          const { data: sub } = await supabaseAdmin
+            .from('subscriptions')
+            .select('pharmacy_id')
+            .eq('stripe_subscription_id', subscription.id)
+            .single();
+            
+          if (sub?.pharmacy_id) {
+            await supabaseAdmin
+              .from('pharmacies')
+              .update({ subscription_status: subscription.status })
+              .eq('id', sub.pharmacy_id);
+          }
+          break;
+        }
+      }
+      res.json({ received: true });
+    } catch (err: any) {
+      logger.error("Error processing webhook:", err);
+      res.status(500).send("Webhook processing failed");
     }
   });
 
@@ -911,6 +1451,10 @@ async function startServer() {
         return res.status(404).json({ error: "Pharmacy not found" });
       }
 
+      if (!pharmacy.avv_akzeptiert_am) {
+        return res.status(400).json({ error: "AVV wurde von der Apotheke noch nicht akzeptiert. PDF kann nicht generiert werden." });
+      }
+
       const PDFDocument = require('pdfkit');
       const doc = new PDFDocument({ margin: 50 });
       
@@ -931,6 +1475,9 @@ async function startServer() {
       doc.text(`IK-Nummer: ${pharmacy.ik_number || 'Nicht hinterlegt'}`);
       doc.text(`BSNR: ${pharmacy.bsnr || 'Nicht hinterlegt'}`);
       doc.text(`Datum der Erstellung: ${new Date().toLocaleDateString('de-DE')}`);
+      
+      const avvDate = new Date(pharmacy.avv_akzeptiert_am).toLocaleString('de-DE');
+      doc.text(`AVV digital akzeptiert am: ${avvDate}`);
       doc.moveDown();
 
       // DSGVO descriptions
