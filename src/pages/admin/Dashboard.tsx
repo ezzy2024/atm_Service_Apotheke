@@ -107,6 +107,7 @@ export default function Dashboard() {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [authorizedPharmacies, setAuthorizedPharmacies] = useState<string[]>([]);
   const [selectedPharmacyId, setSelectedPharmacyId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   
   const [newEvent, setNewEvent] = useState({
     title: "",
@@ -359,15 +360,15 @@ export default function Dashboard() {
     }
   };
 
-  const triggerExport = async (format: "json" | "csv" | "pdf") => {
+  const triggerExport = async (formatType: "json" | "csv" | "pdf") => {
     try {
-      setExportingFormat(format);
+      setExportingFormat(formatType);
       const pharmacyId = localStorage.getItem("demo_pharmacy_id") || "d3b07384-d113-4956-a50e-a1c563e4410a";
       const currentMonth = format(new Date(), "yyyy-MM");
       
-      const endpoint = format === "json" 
+      const endpoint = formatType === "json" 
         ? `/api/admin/billing/export/${pharmacyId}?month=${currentMonth}`
-        : `/api/admin/billing/export-${format}/${pharmacyId}?month=${currentMonth}`;
+        : `/api/admin/billing/export-${formatType}/${pharmacyId}?month=${currentMonth}`;
         
       const res = await fetch(endpoint);
       if (!res.ok) throw new Error("Fehler beim Erstellen der Abrechnung.");
@@ -886,7 +887,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
       <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1031,6 +1031,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </TabsContent>
+      </Tabs>
 
       {/* Video Call Dialog */}
       <Dialog
