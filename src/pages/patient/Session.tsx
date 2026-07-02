@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import SignatureCanvas from "react-signature-canvas";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,10 @@ import {
   Stethoscope,
   AlertCircle,
   CheckCircle2,
+  CreditCard,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { JitsiMeeting } from "@jitsi/react-sdk";
 
 type Step =
   | "consent"
@@ -24,14 +26,14 @@ type Step =
   | "video";
 
 import { ServiceType } from "@/src/types";
-import { tiService } from "@/src/lib/ti-service";
+import { useMediaPermissions } from "@/src/hooks/useMediaPermissions";
+import { useAudioAssistant } from "@/src/hooks/useAudioAssistant";
 
 export default function Session() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("consent");
   const [consentId, setConsentId] = useState<string>("");
-  const [isReadingCard, setIsReadingCard] = useState(false);
 
   // Triage State
   const [triageCategory, setTriageCategory] = useState("");
@@ -51,28 +53,57 @@ export default function Session() {
   const [hasNoDevice, setHasNoDevice] = useState(false);
   const [isUrgent, setIsUrgent] = useState(false);
   const [needsHelp, setNeedsHelp] = useState(false);
+  const [dsgvoAccepted, setDsgvoAccepted] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const logTelemetryEvent = (eventType: string) => {
+    const pharmacyId = sessionStorage.getItem("byod_pharmacy_id");
+    if (!pharmacyId || !id) return;
+    fetch("/api/kiosk/telemetry", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: id, event_type: eventType, pharmacy_id: pharmacyId })
+    }).catch(console.error);
+  };
 
   const sigCanvas = useRef<SignatureCanvas>(null);
 
-  const handleReadEgk = async () => {
-    try {
-      setIsReadingCard(true);
-      const cardData = await tiService.readPatientCard("terminal-1");
-      setName(`${cardData.firstName} ${cardData.lastName}`);
-      setBirthDate(cardData.birthDate);
-      setHealthInsuranceName(cardData.healthInsurance);
-      setInsuranceNumber(cardData.kvnr);
-      setIkNumber(cardData.ikNumber.substring(0, 9)); // Max 9 chars
-      setStatusField5("10000"); // Mock status field
-    } catch (error) {
-      console.error("Fehler beim eGK Einlesen:", error);
-      alert("Kartenlesefehler.");
-    } finally {
-      setIsReadingCard(false);
-    }
-  };
+  const { hasPermissions, error: mediaError } = useMediaPermissions();
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [jitsiDomain] = useState(import.meta.env.VITE_JITSI_DOMAIN || "meet.jit.si");
 
-  const [isSaving, setIsSaving] = useState(false);
+  // Audio Assistant
+  const { speak } = useAudioAssistant();
+
+  useEffect(() => {
+    switch (step) {
+      case "consent":
+        speak("Schritt 1. Einverständniserklärung. Bitte lesen Sie Ihre Gesundheitskarte ein, oder geben Sie Ihre Daten manuell ein.");
+        break;
+      case "service":
+        speak("Schritt 2. Leistungsauswahl. Möchten Sie nur eine Ersteinschätzung, oder zusätzlich eine ärztliche Videosprechstunde?");
+        break;
+      case "triage-disclaimer":
+        speak("Achtung. Dies ist kein Notrufsystem. Bei akuter Lebensgefahr wählen Sie bitte sofort die 112.");
+        break;
+      case "triage-q1":
+        speak("Frage 1. Welche Beschwerden haben Sie aktuell?");
+        break;
+      case "triage-q2":
+        speak("Frage 2. Seit wann bestehen diese Beschwerden?");
+        break;
+      case "triage-q3":
+        speak("Frage 3. Wie stark schätzen Sie die Dringlichkeit ein?");
+        break;
+      case "video":
+        speak("Die Videosprechstunde wird gestartet. Bitte warten Sie auf den Arzt.");
+        break;
+    }
+    
+    // Log telemetry for step change
+    const eventName = step === "finished" ? "SESSION_COMPLETED" : `STEP_${step.toUpperCase().replace("-", "_")}`;
+    logTelemetryEvent(eventName);
+  }, [step, speak]);
 
   const isIkValid = /^\d{9}$/.test(ikNumber);
   const isKvnrValid = /^[A-Z]\d{9}$/.test(insuranceNumber);
@@ -95,14 +126,13 @@ export default function Session() {
     // For demo purposes, we read it from localStorage.
     const pharmacistName =
       localStorage.getItem("demo_pharmacist_name") || "Apotheker";
-    const pharmacyId =
-      localStorage.getItem("demo_pharmacy_id") || "d3b07384-d113-4956-a50e-a1c563e4410a";
+    const pharmacyId = sessionStorage.getItem("byod_pharmacy_id");
 
     try {
       const response = await fetch("/api/kiosk/billing", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           pharmacy_id: pharmacyId,
@@ -132,9 +162,10 @@ export default function Session() {
       fetch("/api/kiosk/generate-report", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
+          pharmacy_id: pharmacyId,
           consent_id: consentId,
           billing_id: billingId,
           triage_data: {
@@ -147,10 +178,8 @@ export default function Session() {
         console.error("Failed to generate clinical report silently:", err);
       });
 
-      // Dispatch custom event to notify Admin Dashboard (simulating real-time notification)
-      const channel = new BroadcastChannel("kiosk_alerts");
-      channel.postMessage({ type: "triage_completed", serviceType: type });
-      channel.close();
+      // Supabase Realtime will automatically notify the Admin Dashboard
+      // because we just inserted a new billing_record
     } catch (e) {
       console.error(e);
     }
@@ -166,17 +195,15 @@ export default function Session() {
     terminateSession();
   };
 
-  const terminateSession = () => {
-    // Purge everything
-    localStorage.clear();
-    sessionStorage.clear();
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c
-        .replace(/^ +/, "")
-        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
-    // Redirect to standby
-    navigate("/kiosk", { replace: true });
+  const terminateSession = (isIdleReset: boolean = false) => {
+    if (isIdleReset) {
+      logTelemetryEvent("SESSION_ABORTED");
+    } else {
+      logTelemetryEvent("SESSION_COMPLETED");
+    }
+
+    // Redirect to patient standby/landing
+    navigate(`/patient/start?pharmacy_id=${sessionStorage.getItem("byod_pharmacy_id") || ""}`, { replace: true });
   };
 
   const handleConsentSubmit = async () => {
@@ -187,10 +214,11 @@ export default function Session() {
       !insuranceNumber ||
       !birthDate ||
       !statusField5 ||
+      !dsgvoAccepted ||
       sigCanvas.current?.isEmpty()
     ) {
       alert(
-        "Bitte füllen Sie alle Felder aus und unterschreiben Sie das Dokument.",
+        "Bitte füllen Sie alle Felder aus, stimmen Sie der DSGVO zu und unterschreiben Sie das Dokument.",
       );
       return;
     }
@@ -223,15 +251,13 @@ export default function Session() {
         sigCanvas.current?.getCanvas().toDataURL("image/png") || "";
 
       const fullStatusField = statusField5 + "83";
-
-      const pharmacyId =
-        localStorage.getItem("demo_pharmacy_id") || "d3b07384-d113-4956-a50e-a1c563e4410a";
+      const pharmacyId = sessionStorage.getItem("byod_pharmacy_id");
 
       // Save to Backend Proxy
       const response = await fetch("/api/kiosk/consent", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           pharmacy_id: pharmacyId,
@@ -271,6 +297,21 @@ export default function Session() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden relative">
+
+      {/* Linear Progress Bar */}
+      {step !== "triage-emergency" && step !== "video" && (
+        <div className="w-full h-4 bg-slate-200">
+          <div 
+            className="h-full bg-red-600 transition-all duration-500 ease-out"
+            style={{ 
+              width: step === "consent" ? "33%" : 
+                     step === "service" ? "66%" : 
+                     "100%" 
+            }}
+          />
+        </div>
+      )}
+
       {/* Kiosk Header */}
       {step !== "triage-emergency" && step !== "video" && (
         <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
@@ -292,10 +333,10 @@ export default function Session() {
           </div>
           <Button
             variant="destructive"
-            onClick={terminateSession}
-            className="bg-red-600 hover:bg-red-700 text-lg px-6 py-6 rounded-lg font-bold"
+            onClick={() => terminateSession(false)}
+            className="bg-red-600 hover:bg-red-700 text-xl px-8 h-20 rounded-xl font-bold border-4 border-slate-900"
           >
-            Sitzung beenden
+            Sitzung abbrechen
           </Button>
         </div>
       )}
@@ -304,9 +345,9 @@ export default function Session() {
       <div className="flex-1 overflow-auto p-8 relative">
         {step === "consent" && (
           <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-blue-50 text-blue-900 p-6 rounded-xl border border-blue-200">
+            <div className="bg-red-50 text-red-900 p-6 rounded-xl border border-red-200">
               <div className="flex gap-4">
-                <ShieldAlert className="w-8 h-8 text-[#0082C8] shrink-0" />
+                <ShieldAlert className="w-8 h-8 text-red-600 shrink-0" />
                 <div>
                   <h3 className="font-bold text-lg mb-2">
                     Vereinbarung zur assistierten Telemedizin
@@ -325,21 +366,12 @@ export default function Session() {
               <h3 className="font-semibold text-slate-800 text-lg">
                 Patientendaten
               </h3>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleReadEgk}
-                disabled={isReadingCard}
-                className="gap-2 border-[#0082C8] text-[#0082C8] hover:bg-[#0082C8]/10"
-              >
-                {isReadingCard ? "Lese eGK..." : "eGK Einlesen"}
-              </Button>
             </div>
             <div className="space-y-4">
               <input
                 type="text"
                 placeholder="Vollständiger Name"
-                className="w-full p-4 text-lg border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0082C8] outline-none"
+                className="w-full p-4 text-lg border border-slate-900 rounded-lg focus:ring-2 focus:ring-red-600 outline-none"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -348,7 +380,7 @@ export default function Session() {
                   <input
                     type="text"
                     placeholder="Krankenkasse Name"
-                    className="w-full p-4 text-lg border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0082C8] outline-none"
+                    className="w-full p-4 text-lg border border-slate-900 rounded-lg focus:ring-2 focus:ring-red-600 outline-none"
                     value={healthInsuranceName}
                     onChange={(e) => setHealthInsuranceName(e.target.value)}
                   />
@@ -357,7 +389,7 @@ export default function Session() {
                   <input
                     type="text"
                     placeholder="Kostenträgerkennung (IK - 9 Ziffern)"
-                    className={`w-full p-4 text-lg border rounded-lg focus:ring-2 focus:ring-[#0082C8] outline-none ${ikNumber && !isIkValid ? "border-red-500 bg-red-50" : "border-slate-300"}`}
+                    className={`w-full p-4 text-lg border rounded-lg focus:ring-2 focus:ring-red-600 outline-none ${ikNumber && !isIkValid ? "border-red-500 bg-red-50" : "border-slate-900"}`}
                     value={ikNumber}
                     maxLength={9}
                     onChange={(e) => setIkNumber(e.target.value)}
@@ -374,7 +406,7 @@ export default function Session() {
                   <input
                     type="text"
                     placeholder="Versichertennummer (KVNR - 1 Buchstabe, 9 Ziffern)"
-                    className={`w-full p-4 text-lg border rounded-lg focus:ring-2 focus:ring-[#0082C8] outline-none ${insuranceNumber && !isKvnrValid ? "border-red-500 bg-red-50" : "border-slate-300"}`}
+                    className={`w-full p-4 text-lg border rounded-lg focus:ring-2 focus:ring-red-600 outline-none ${insuranceNumber && !isKvnrValid ? "border-red-500 bg-red-50" : "border-slate-900"}`}
                     value={insuranceNumber}
                     maxLength={10}
                     onChange={(e) =>
@@ -393,7 +425,7 @@ export default function Session() {
                   </label>
                   <input
                     type="date"
-                    className="w-full p-4 text-lg border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0082C8] outline-none"
+                    className="w-full p-4 text-lg border border-slate-900 rounded-lg focus:ring-2 focus:ring-red-600 outline-none"
                     value={birthDate}
                     onChange={(e) => setBirthDate(e.target.value)}
                   />
@@ -404,12 +436,12 @@ export default function Session() {
                   <input
                     type="text"
                     placeholder="Statusfeld (erste 5 Ziffern von eGK)"
-                    className={`flex-1 p-4 text-lg border rounded-lg focus:ring-2 focus:ring-[#0082C8] outline-none ${statusField5 && !isStatusValid ? "border-red-500 bg-red-50" : "border-slate-300"}`}
+                    className={`flex-1 p-4 text-lg border rounded-lg focus:ring-2 focus:ring-red-600 outline-none ${statusField5 && !isStatusValid ? "border-red-500 bg-red-50" : "border-slate-900"}`}
                     value={statusField5}
                     maxLength={5}
                     onChange={(e) => setStatusField5(e.target.value)}
                   />
-                  <div className="p-4 bg-slate-100 border border-slate-300 rounded-lg text-lg text-slate-500 font-mono">
+                  <div className="p-4 bg-slate-100 border border-slate-900 rounded-lg text-lg text-slate-500 font-mono">
                     83
                   </div>
                 </div>
@@ -432,7 +464,7 @@ export default function Session() {
               <label className="flex items-center gap-4 p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
                 <input
                   type="checkbox"
-                  className="w-6 h-6 accent-[#0082C8]"
+                  className="w-6 h-6 accent-red-600"
                   checked={hasNoDevice}
                   onChange={(e) => setHasNoDevice(e.target.checked)}
                 />
@@ -444,7 +476,7 @@ export default function Session() {
               <label className="flex items-center gap-4 p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
                 <input
                   type="checkbox"
-                  className="w-6 h-6 accent-[#0082C8]"
+                  className="w-6 h-6 accent-red-600"
                   checked={isUrgent}
                   onChange={(e) => setIsUrgent(e.target.checked)}
                 />
@@ -456,12 +488,29 @@ export default function Session() {
               <label className="flex items-center gap-4 p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
                 <input
                   type="checkbox"
-                  className="w-6 h-6 accent-[#0082C8]"
+                  className="w-6 h-6 accent-red-600"
                   checked={needsHelp}
                   onChange={(e) => setNeedsHelp(e.target.checked)}
                 />
                 <span className="text-lg">
                   Ich benötige praktische oder technische Hilfestellung
+                </span>
+              </label>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-semibold text-slate-800 text-lg">
+                Datenschutz (DSGVO)
+              </h3>
+              <label className="flex items-start gap-4 p-4 border border-red-200 bg-red-50/50 rounded-lg cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  className="w-6 h-6 mt-1 accent-red-600"
+                  checked={dsgvoAccepted}
+                  onChange={(e) => setDsgvoAccepted(e.target.checked)}
+                />
+                <span className="text-lg text-slate-700 leading-snug">
+                  Ich willige ausdrücklich in die Verarbeitung meiner Gesundheitsdaten zur Durchführung der pharmazeutischen Videosprechstunde ein. Die <a href="#" className="text-red-600 underline font-medium" onClick={(e) => { e.preventDefault(); alert("Hier öffnet sich die vollständige Datenschutzerklärung der Apotheke (PDF/Modal)."); }}>Datenschutzerklärung</a> habe ich zur Kenntnis genommen.
                 </span>
               </label>
             </div>
@@ -480,7 +529,7 @@ export default function Session() {
                   Löschen
                 </Button>
               </div>
-              <div className="border-2 border-slate-300 rounded-xl bg-white overflow-hidden">
+              <div className="border-2 border-slate-900 rounded-xl bg-white overflow-hidden">
                 <SignatureCanvas
                   ref={sigCanvas}
                   penColor="black"
@@ -490,7 +539,7 @@ export default function Session() {
             </div>
 
             <Button
-              className="w-full bg-[#0082C8] hover:bg-[#006A9C] text-white py-8 text-xl font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-red-600 hover:bg-red-700 text-white py-8 text-xl font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleConsentSubmit}
               disabled={isSaving || !isFormValid}
             >
@@ -512,9 +561,9 @@ export default function Session() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
-              <Card className="hover:shadow-xl transition-all cursor-pointer border-2 hover:border-[#0082C8] group">
+              <Card className="hover:shadow-xl transition-all cursor-pointer border-2 hover:border-red-600 group">
                 <CardContent className="p-8 flex flex-col items-center text-center space-y-6">
-                  <div className="w-20 h-20 bg-blue-50 text-[#0082C8] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <div className="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Stethoscope className="w-10 h-10" />
                   </div>
                   <div>
@@ -535,9 +584,9 @@ export default function Session() {
                 </CardContent>
               </Card>
 
-              <Card className="hover:shadow-xl transition-all cursor-pointer border-2 hover:border-[#0082C8] group">
+              <Card className="hover:shadow-xl transition-all cursor-pointer border-2 hover:border-red-600 group">
                 <CardContent className="p-8 flex flex-col items-center text-center space-y-6">
-                  <div className="w-20 h-20 bg-blue-50 text-[#0082C8] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <div className="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Video className="w-10 h-10" />
                   </div>
                   <div>
@@ -550,7 +599,7 @@ export default function Session() {
                     </p>
                   </div>
                   <Button
-                    className="w-full text-lg py-6 bg-[#0082C8] text-white hover:bg-[#006A9C] mt-auto"
+                    className="w-full text-lg py-6 bg-red-600 text-white hover:bg-red-700 mt-auto"
                     onClick={() => {
                       saveBillingRecord("video_only");
                       setStep("video");
@@ -595,7 +644,7 @@ export default function Session() {
             </div>
             
             <Button
-              className="w-full bg-[#0082C8] hover:bg-[#006A9C] text-white py-8 text-xl font-bold rounded-xl"
+              className="w-full bg-red-600 hover:bg-red-700 text-white py-8 text-xl font-bold rounded-xl"
               onClick={() => setStep("triage-q1")}
             >
               Ich habe verstanden und bestätige
@@ -621,7 +670,7 @@ export default function Session() {
               ].map((cat) => (
                 <Button
                   key={cat}
-                  className="w-full min-h-[160px] text-2xl h-auto whitespace-normal bg-white border-2 border-slate-200 text-slate-800 hover:border-[#0082C8] hover:bg-blue-50"
+                  className="w-full min-h-[160px] text-2xl h-auto whitespace-normal bg-white border-4 border-slate-900 h-20 text-xl font-bold hover:border-red-600 hover:bg-red-50"
                   variant="outline"
                   onClick={() => {
                     setTriageCategory(cat);
@@ -660,7 +709,7 @@ export default function Session() {
                 diese Symptome liegen vor
               </Button>
               <Button
-                className="w-full min-h-[160px] text-2xl h-auto whitespace-normal bg-[#0082C8] hover:bg-[#006A9C] text-white font-bold"
+                className="w-full min-h-[160px] text-2xl h-auto whitespace-normal bg-red-600 hover:bg-red-700 text-white font-bold"
                 onClick={() => setStep("triage-q3")}
               >
                 NEIN,
@@ -696,7 +745,7 @@ export default function Session() {
                 (dur) => (
                   <Button
                     key={dur}
-                    className="w-full min-h-[160px] text-2xl h-auto whitespace-normal bg-white border-2 border-slate-200 text-slate-800 hover:border-[#0082C8] hover:bg-blue-50"
+                    className="w-full min-h-[160px] text-2xl h-auto whitespace-normal bg-white border-4 border-slate-900 h-20 text-xl font-bold hover:border-red-600 hover:bg-red-50"
                     variant="outline"
                     onClick={() => {
                       setTriageDuration(dur);
@@ -728,7 +777,7 @@ export default function Session() {
                 Ermittelte Dringlichkeitsstufe
               </p>
               <p
-                className={`text-4xl font-black ${urgency === "Akut / Dringend" ? "text-amber-600" : "text-blue-600"}`}
+                className={`text-4xl font-black ${urgency === "Akut / Dringend" ? "text-amber-600" : "text-red-600"}`}
               >
                 {urgency}
               </p>
@@ -754,13 +803,13 @@ export default function Session() {
               {urgency === "Akut / Dringend" ? (
                 <>
                   <Button
-                    className="w-full py-8 text-xl h-auto whitespace-normal bg-[#0082C8] hover:bg-[#006A9C] text-white font-bold"
+                    className="w-full py-8 text-xl h-auto whitespace-normal bg-red-600 hover:bg-red-700 text-white font-bold"
                     onClick={handleStartVideoAfterTriage}
                   >
                     Videosprechstunde starten
                   </Button>
                   <Button
-                    className="w-full py-8 text-xl h-auto whitespace-normal bg-white border-2 border-slate-300 text-slate-700 hover:bg-slate-50"
+                    className="w-full py-8 text-xl h-auto whitespace-normal bg-white border-2 border-slate-900 text-slate-700 hover:bg-slate-50"
                     variant="outline"
                     onClick={handleFinishAfterTriage}
                   >
@@ -769,7 +818,7 @@ export default function Session() {
                 </>
               ) : (
                 <Button
-                  className="w-full py-8 text-2xl h-auto whitespace-normal bg-[#0082C8] hover:bg-[#006A9C] text-white font-bold md:col-span-2"
+                  className="w-full py-8 text-2xl h-auto whitespace-normal bg-red-600 hover:bg-red-700 text-white font-bold md:col-span-2"
                   onClick={handleFinishAfterTriage}
                 >
                   Sitzung beenden
@@ -793,13 +842,63 @@ export default function Session() {
                 Sitzung beenden
               </Button>
             </div>
-            <div className="flex-1 bg-black rounded-2xl overflow-hidden border-4 border-slate-200">
-              <iframe
-                allow="camera; microphone; display-capture; autoplay; clipboard-write"
-                src={`https://meet.jit.si/atm-service-apotheke-${consentId}#config.defaultLanguage=ar&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.prejoinPageEnabled=false&interfaceConfig.DISABLE_JOIN_LEAVE_NOTIFICATIONS=true&interfaceConfig.SHOW_CHROME_EXTENSION_BANNER=false&userInfo.displayName=${encodeURIComponent(name || "Patient")}`}
-                style={{ width: "100%", height: "100%", border: 0 }}
-                title="Videosprechstunde"
-              />
+            <div className="flex-1 bg-black rounded-2xl overflow-hidden border-4 border-slate-200 relative">
+              {hasPermissions === false && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900 text-white p-6 text-center">
+                  <div>
+                    <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                    <h3 className="text-2xl font-bold mb-2">Kamera/Mikrofon blockiert</h3>
+                    <p className="text-slate-300">{mediaError || "Bitte wenden Sie sich an das Personal."}</p>
+                  </div>
+                </div>
+              )}
+              {isReconnecting && (
+                <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/80 text-white backdrop-blur-sm">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                    <p className="text-lg">Verbindung unterbrochen – wir verbinden Sie neu...</p>
+                  </div>
+                </div>
+              )}
+              {hasPermissions !== false && (
+                <JitsiMeeting
+                  domain={jitsiDomain}
+                  roomName={`atm-service-apotheke-${consentId}`}
+                  configOverwrite={{
+                    startWithAudioMuted: false,
+                    startWithVideoMuted: false,
+                    prejoinPageEnabled: false,
+                    disableModeratorIndicator: true,
+                    resolution: 480,
+                    constraints: {
+                      video: {
+                        height: { ideal: 480, max: 480, min: 240 },
+                        aspectRatio: 16 / 9,
+                        frameRate: { ideal: 24, max: 30 }
+                      }
+                    },
+                    p2p: { enabled: false }, // Force through JVB for NAT traversal
+                    disableAudioLevels: false
+                  }}
+                  interfaceConfigOverwrite={{
+                    DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
+                    SHOW_CHROME_EXTENSION_BANNER: false,
+                  }}
+                  userInfo={{
+                    displayName: name || 'Patient'
+                  }}
+                  onApiReady={(externalApi) => {
+                    externalApi.addListener('videoConferenceLeft', () => terminateSession());
+                    externalApi.addListener('videoConferenceJoined', () => setIsReconnecting(false));
+                    externalApi.addListener('participantLeft', () => setIsReconnecting(false));
+                  }}
+                  getIFrameRef={(iframeRef) => {
+                    iframeRef.style.height = '100%';
+                    iframeRef.style.width = '100%';
+                    iframeRef.style.border = '0';
+                  }}
+                />
+              )}
             </div>
           </div>
         )}

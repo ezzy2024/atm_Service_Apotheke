@@ -156,14 +156,21 @@ export default function OnboardingWizard() {
     },
     {
       num: 4,
+      title: "Abonnement",
+      desc: "Schließen Sie das B2B-Abonnement ab.",
+      status: 
+        pharmacy.onboarding_status === "pending_verification" || pharmacy.onboarding_status === "active" 
+          ? pharmacy.subscription_status === "active" ? "completed" : "current"
+          : "locked",
+    },
+    {
+      num: 5,
       title: "Aktivierung",
       desc: "Prüfung Ihrer Dokumente und Freischaltung des Kiosk-Betriebs.",
       status: 
-        pharmacy.onboarding_status === "pending_verification" 
-          ? "current" 
-          : pharmacy.onboarding_status === "active" 
-            ? "completed" 
-            : "locked",
+        pharmacy.onboarding_status === "active" && pharmacy.subscription_status === "active"
+          ? "completed" 
+          : "locked",
     },
   ];
 
@@ -377,6 +384,39 @@ export default function OnboardingWizard() {
                   )}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Stripe Subscription Step */}
+          {(pharmacy.onboarding_status === "pending_verification" || pharmacy.onboarding_status === "active") && pharmacy.subscription_status !== "active" && (
+            <div className="flex flex-col items-center justify-center p-8 bg-blue-50/50 rounded-lg border border-dashed border-blue-200 mt-6">
+              <h3 className="font-semibold text-slate-900 text-lg mb-2">B2B-Abonnement abschließen</h3>
+              <p className="text-slate-500 text-sm text-center max-w-md mb-6">
+                Um die aTM-Plattform vollumfänglich nutzen zu können, benötigen Sie ein aktives Abonnement. 
+                Die Abrechnung erfolgt sicher über Stripe.
+              </p>
+              <Button 
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/stripe/create-checkout-session", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ pharmacy_id: pharmacy.id })
+                    });
+                    const data = await res.json();
+                    if (data.checkout_url) {
+                      window.location.href = data.checkout_url;
+                    } else {
+                      alert("Fehler: " + (data.error || "Unbekannter Fehler"));
+                    }
+                  } catch (e: any) {
+                    alert("Fehler beim Starten des Checkouts: " + e.message);
+                  }
+                }}
+                className="bg-[#0082C8] hover:bg-[#006A9C] text-white"
+              >
+                Kostenpflichtig abonnieren
+              </Button>
             </div>
           )}
         </CardContent>

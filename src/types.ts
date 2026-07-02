@@ -60,6 +60,7 @@ export interface BillingRecord {
   date_of_service: string;
   sonderkennzeichen: string;
   executed_by_pharmacist_name?: string;
+  status?: string;
   created_at?: string;
   consent_agreements?: ConsentAgreement;
 }
