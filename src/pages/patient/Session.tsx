@@ -215,7 +215,7 @@ export default function Session() {
       !birthDate ||
       !statusField5 ||
       !dsgvoAccepted ||
-      sigCanvas.current?.isEmpty()
+      (localStorage.getItem('skip_signature') !== 'true' && sigCanvas.current?.isEmpty())
     ) {
       alert(
         "Bitte füllen Sie alle Felder aus, stimmen Sie der DSGVO zu und unterschreiben Sie das Dokument.",
@@ -246,10 +246,10 @@ export default function Session() {
     setIsSaving(true);
 
     try {
-      // FIX: getCanvas() statt getTrimmedCanvas() verwendet, um den Vite-Import-Fehler zu umgehen
-      const signatureBlob =
-        sigCanvas.current?.getCanvas().toDataURL("image/png") || "";
-
+      const isSkipped = localStorage.getItem('skip_signature') === 'true';
+      const signatureBlob = isSkipped 
+        ? "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" // dummy pixel
+        : (sigCanvas.current?.getCanvas().toDataURL("image/png") || "");
       const fullStatusField = statusField5 + "83";
       const pharmacyId = sessionStorage.getItem("byod_pharmacy_id");
 
