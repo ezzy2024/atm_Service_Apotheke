@@ -133,8 +133,8 @@ namespace ServiceApotheke.API.Controllers
             var tokenString = tokenHandler.WriteToken(token);
             
             var cookieOptions = new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.None, Expires = DateTime.UtcNow.AddHours(8) };
-            if (Request.Host.Host.Contains("serviceapotheke.tech")) cookieOptions.Domain = ".serviceapotheke.tech";
-            Response.Cookies.Append("jwt", tokenString, cookieOptions);
+            // cookieOptions.Domain = ".serviceapotheke.tech";
+            Response.Cookies.Append("sa_auth", tokenString, cookieOptions);
 
             return Ok(new { 
                 id = pharmacy.Id.ToString(), 

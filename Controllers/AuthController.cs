@@ -113,9 +113,9 @@ namespace ServiceApotheke.API.Controllers
                 SameSite = SameSiteMode.None,
                 Expires = DateTime.UtcNow.AddDays(-1)
             };
-            if (Request.Host.Host.Contains("serviceapotheke.tech")) cookieOptions.Domain = ".serviceapotheke.tech";
+            // cookieOptions.Domain = ".serviceapotheke.tech";
             
-            Response.Cookies.Append("jwt", "", cookieOptions);
+            Response.Cookies.Append("sa_auth", "", cookieOptions);
 
             return Ok(new { message = "Successfully logged out." });
         }

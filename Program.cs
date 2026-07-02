@@ -86,8 +86,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 {
                     if (context.Request.Cookies.ContainsKey("auth_token"))
                         context.Token = context.Request.Cookies["auth_token"];
-                    else if (context.Request.Cookies.ContainsKey("jwt"))
-                        context.Token = context.Request.Cookies["jwt"];
+                    else if (context.Request.Cookies.ContainsKey("sa_auth"))
+                        context.Token = context.Request.Cookies["sa_auth"];
                 }
                 return Task.CompletedTask;
             }
