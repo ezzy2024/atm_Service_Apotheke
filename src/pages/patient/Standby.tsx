@@ -66,12 +66,16 @@ export default function Standby() {
           Aufnahme starten
         </Button>
         
-        <div className="text-xs text-slate-400 font-medium pt-8 flex flex-col items-center gap-1">
+        <div className="text-xs text-slate-400 font-medium pt-8 flex flex-col items-center gap-2">
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-green-500"></span>
             Verbindung verschlüsselt (TLS 1.3)
           </span>
           <span>KBV-zertifizierter Datenschutz</span>
+          <div className="flex gap-4 mt-2">
+            <a href="/impressum" target="_blank" className="hover:text-slate-600 underline transition-colors">Impressum</a>
+            <a href="/datenschutz" target="_blank" className="hover:text-slate-600 underline transition-colors">Datenschutzerklärung</a>
+          </div>
         </div>
       </div>
     </div>
