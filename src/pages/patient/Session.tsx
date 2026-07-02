@@ -865,6 +865,8 @@ export default function Session() {
                   domain={jitsiDomain}
                   roomName={`atm-service-apotheke-${consentId}`}
                   configOverwrite={{
+                    defaultLanguage: 'de',
+                    disableLanguageDetection: true,
                     startWithAudioMuted: false,
                     startWithVideoMuted: false,
                     prejoinPageEnabled: false,

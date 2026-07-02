@@ -1058,6 +1058,8 @@ export default function Dashboard() {
                   domain={jitsiDomain}
                   roomName={`atm-service-apotheke-${activeVideoCall}`}
                   configOverwrite={{
+                    defaultLanguage: 'de',
+                    disableLanguageDetection: true,
                     startWithAudioMuted: false,
                     startWithVideoMuted: false,
                     prejoinPageEnabled: false,
