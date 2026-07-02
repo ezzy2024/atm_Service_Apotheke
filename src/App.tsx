@@ -33,6 +33,7 @@ export default function App() {
 
           {/* Admin Domain */}
           <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="settings" element={<Settings />} />
           </Route>
@@ -45,6 +46,7 @@ export default function App() {
           {/* Patient BYOD Domain */}
           <Route path="/patient" element={<PatientLayout />}>
             <Route index element={<Standby />} />
+            <Route path="start" element={<Standby />} />
             <Route path="session/:id" element={<Session />} />
           </Route>
         </Routes>
