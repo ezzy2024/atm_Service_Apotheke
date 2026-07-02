@@ -37,6 +37,8 @@ namespace ServiceApotheke.API.Models
         public string? ExperienceYears { get; set; }
         public string? Specialties { get; set; }
         public string? SoftwareExperience { get; set; }
+        public string Qualification { get; set; } = "Approbation";
+        public string WwsProficiency { get; set; } = "";
         public int RadiusKm { get; set; } = 20; // Hier als int für korrekte Logik
         public string? PreferredStates { get; set; }
         public string? TravelWillingness { get; set; }

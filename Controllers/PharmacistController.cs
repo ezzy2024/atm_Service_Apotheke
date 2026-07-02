@@ -47,6 +47,8 @@ namespace ServiceApotheke.API.Controllers
                 PasswordHash = passwordHash,
                 PhoneNumber = registration.PhoneNumber,
                 Address = registration.Address,
+                Qualification = registration.Qualification,
+                WwsProficiency = registration.WwsProficiency,
                 EmailConfirmationToken = token,
                 IsEmailConfirmed = false,
                 
@@ -259,14 +261,7 @@ namespace ServiceApotheke.API.Controllers
         public int AvailableDaysPerWeek { get; set; }
     }
 
-    public class PharmacistRegDto
-    {
-        public string FullName { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-        public string PhoneNumber { get; set; } = string.Empty;
-        public string Address { get; set; } = string.Empty;
-    }
+
 
     public class LoginDto
     {

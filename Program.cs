@@ -188,6 +188,46 @@ using (var scope = app.Services.CreateScope())
 
         try 
         {
+            db.Database.ExecuteSqlRaw("ALTER TABLE \"JobPosts\" ADD COLUMN \"RequiredWws\" text;");
+            Console.WriteLine("Successfully added RequiredWws column to JobPosts.");
+        } 
+        catch (Exception ex) 
+        {
+            Console.WriteLine($"Column might already exist or error: {ex.Message}");
+        }
+
+        try 
+        {
+            db.Database.ExecuteSqlRaw("ALTER TABLE \"JobPosts\" ADD COLUMN \"ReasonForVacancy\" text;");
+            Console.WriteLine("Successfully added ReasonForVacancy column to JobPosts.");
+        } 
+        catch (Exception ex) 
+        {
+            Console.WriteLine($"Column might already exist or error: {ex.Message}");
+        }
+
+        try 
+        {
+            db.Database.ExecuteSqlRaw("ALTER TABLE \"Pharmacists\" ADD COLUMN \"Qualification\" text DEFAULT 'Approbation';");
+            Console.WriteLine("Successfully added Qualification column to Pharmacists.");
+        } 
+        catch (Exception ex) 
+        {
+            Console.WriteLine($"Column might already exist or error: {ex.Message}");
+        }
+
+        try 
+        {
+            db.Database.ExecuteSqlRaw("ALTER TABLE \"Pharmacists\" ADD COLUMN \"WwsProficiency\" text DEFAULT '';");
+            Console.WriteLine("Successfully added WwsProficiency column to Pharmacists.");
+        } 
+        catch (Exception ex) 
+        {
+            Console.WriteLine($"Column might already exist or error: {ex.Message}");
+        }
+
+        try 
+        {
             db.Database.ExecuteSqlRaw(@"
                 ALTER TABLE ""JobPosts"" 
                 DROP COLUMN IF EXISTS ""Accommodation"",

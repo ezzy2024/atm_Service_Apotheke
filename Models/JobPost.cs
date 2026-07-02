@@ -11,6 +11,8 @@ namespace ServiceApotheke.API.Models
         public string? Title { get; set; }
         public string? Description { get; set; }
         public string? RequiredQualifications { get; set; }
+        public string? RequiredWws { get; set; }
+        public string? ReasonForVacancy { get; set; }
         
         // --- Temporal ---
         public DateTime? StartDate { get; set; }

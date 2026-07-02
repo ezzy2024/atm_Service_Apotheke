@@ -30,6 +30,7 @@ namespace ServiceApotheke.API.Services
                 .Where(j => j.Status == "Active")
                 .Where(j => (j.Pharmacy.TargetHourlyRate != null && j.Pharmacy.TargetHourlyRate >= pharmacist.HourlyRate) 
                          || (j.Salary != null && j.Salary >= pharmacist.HourlyRate))
+                .Where(j => string.IsNullOrEmpty(j.RequiredQualifications) || j.RequiredQualifications == pharmacist.Qualification)
                 .ToListAsync();
 
             var matches = new List<MatchResultDto>();
@@ -82,6 +83,7 @@ namespace ServiceApotheke.API.Services
             var potentialPharmacists = await _context.Pharmacists
                 .Where(p => p.IsVerified)
                 .Where(p => p.HourlyRate <= maxBudget || maxBudget == 0) // if maxBudget is 0, we assume no budget constraint
+                .Where(p => string.IsNullOrEmpty(job.RequiredQualifications) || job.RequiredQualifications == p.Qualification)
                 .ToListAsync();
 
             var matches = new List<MatchResultDto>();
@@ -133,18 +135,20 @@ namespace ServiceApotheke.API.Services
                 score -= Math.Min(distancePenalty, 20.0);
             }
 
-            // Software Experience Bonus
-            if (!string.IsNullOrEmpty(pharmacist.SoftwareExperience) && 
-                !string.IsNullOrEmpty(job.Pharmacy?.SoftwareSystem))
+            // Software/WWS Experience Bonus
+            string jobWws = job.RequiredWws ?? job.Pharmacy?.SoftwareSystem ?? "";
+            string pharmacistWws = pharmacist.WwsProficiency ?? pharmacist.SoftwareExperience ?? "";
+
+            if (!string.IsNullOrEmpty(pharmacistWws) && !string.IsNullOrEmpty(jobWws))
             {
-                if (pharmacist.SoftwareExperience.Contains(job.Pharmacy.SoftwareSystem, StringComparison.OrdinalIgnoreCase))
+                if (pharmacistWws.Contains(jobWws, StringComparison.OrdinalIgnoreCase))
                 {
-                    // +10% bonus for matching software
+                    // +10% bonus for matching WWS
                     score = Math.Min(100.0, score + 10.0);
                 }
                 else
                 {
-                    // -10% penalty for mismatched software (assuming training is needed)
+                    // -10% penalty for mismatched WWS (assuming training is needed)
                     score -= 10.0;
                 }
             }
