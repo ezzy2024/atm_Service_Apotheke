@@ -6,9 +6,9 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  GAR_LOCATION: europe-west3
+  GAR_LOCATION: europe-west1
   SERVICE: serviceapotheke-api
-  REGION: europe-west3
+  REGION: europe-west1
   WIF_PROVIDER: ${{ secrets.WIF_PROVIDER_NAME }}
   WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT_EMAIL }}
 
