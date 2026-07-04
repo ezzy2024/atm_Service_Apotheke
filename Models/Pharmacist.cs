@@ -48,9 +48,13 @@ namespace ServiceApotheke.API.Models
         public bool EmergencyServiceWillingness { get; set; }
         public bool WeekendWillingness { get; set; }
         public string? FeeModel { get; set; }
+        public string? BillingModel { get; set; } // Stundensatz, Tagessatz, Beides
         public decimal HourlyRate { get; set; }
+        public bool IsVatRequired { get; set; }
         public string? VatSubject { get; set; }
+        public string? TravelCostModel { get; set; } // Inklusive, nach km/Beleg, nach Absprache
         public string? TravelExpenses { get; set; }
+        public string? CountryOfLicense { get; set; } // Deutschland, Other
 
         // Dateipfade
         public string? ApprobationDocumentPath { get; set; }
