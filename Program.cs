@@ -172,6 +172,7 @@ using (var scope = app.Services.CreateScope())
                 ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""ContractTermsAcceptedAt"" timestamp with time zone;
                 ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""TaxId"" text;
                 ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""TradeRegisterNumber"" text;
+                ALTER TABLE ""Pharmacists"" DROP COLUMN IF EXISTS ""Address"";
             ");
             Console.WriteLine("Successfully added missing Pharmacists columns manually.");
         }
