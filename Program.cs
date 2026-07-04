@@ -171,7 +171,17 @@ using (var scope = app.Services.CreateScope())
         } 
         catch (Exception ex) 
         {
-            Console.WriteLine($"Column might already exist or error: {ex.Message}");
+            Console.WriteLine(ex.Message);
+        }
+
+        try 
+        {
+            db.Database.ExecuteSqlRaw("ALTER TABLE \"JobPosts\" ADD COLUMN IF NOT EXISTS \"ShiftDetails\" text;");
+            Console.WriteLine("Successfully added ShiftDetails column to JobPosts.");
+        } 
+        catch (Exception ex) 
+        {
+            Console.WriteLine(ex.Message);
         }
 
         try 

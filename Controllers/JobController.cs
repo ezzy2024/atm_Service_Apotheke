@@ -48,6 +48,18 @@ namespace ServiceApotheke.API.Controllers
         {
             job.CreatedAt = DateTime.UtcNow;
             job.Status = "Active";
+            
+            // Auto-generate title
+            string reason = string.IsNullOrEmpty(job.ReasonForVacancy) ? "Vertretung" : job.ReasonForVacancy;
+            string startStr = job.StartDate?.ToString("dd.MM.yyyy") ?? "?";
+            string endStr = job.EndDate?.ToString("dd.MM.yyyy") ?? "?";
+            
+            if (startStr == endStr) {
+                job.Title = $"{reason} ({startStr})";
+            } else {
+                job.Title = $"{reason} ({startStr} - {endStr})";
+            }
+
             _context.JobPosts.Add(job);
             await _context.SaveChangesAsync();
             return Ok(job);
