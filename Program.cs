@@ -308,8 +308,38 @@ using (var scope = app.Services.CreateScope())
                 ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""Longitude"" double precision;
                 ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""Latitude"" double precision;
                 ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""Longitude"" double precision;
+                ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""LicenseDocumentPath"" text;
+                ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""SoftwareSystem"" text;
+                ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""HouseNumber"" text DEFAULT '';
+                ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""City"" text DEFAULT '';
+                ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""PostalCode"" text DEFAULT '';
             ");
-            Console.WriteLine("Successfully added coordinates to Pharmacies and Pharmacists.");
+            Console.WriteLine("Successfully added coordinates and new pharmacy fields.");
+        } 
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
+
+        try 
+        {
+            db.Database.ExecuteSqlRaw(@"ALTER TABLE ""Pharmacies"" RENAME COLUMN ""Address"" TO ""Street"";");
+            Console.WriteLine("Successfully renamed Address to Street.");
+        } 
+        catch (Exception ex) { Console.WriteLine($"Address rename failed (probably already done): {ex.Message}"); }
+        
+        try 
+        {
+            db.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS ""Notifications"" (
+                    ""Id"" serial PRIMARY KEY,
+                    ""UserId"" text NOT NULL,
+                    ""Role"" text NOT NULL,
+                    ""Title"" text NOT NULL,
+                    ""Message"" text NOT NULL,
+                    ""Type"" text NOT NULL,
+                    ""IsRead"" boolean NOT NULL,
+                    ""CreatedAt"" timestamp with time zone NOT NULL
+                );
+            ");
+            Console.WriteLine("Successfully created Notifications table.");
         } 
         catch (Exception ex) { Console.WriteLine(ex.Message); }
     }
