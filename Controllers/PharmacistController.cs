@@ -109,10 +109,10 @@ namespace ServiceApotheke.API.Controllers
             if (user == null || user.EmailConfirmationToken != model.Token) 
                 return BadRequest("Code ungültig oder abgelaufen.");
             
-            // user.IsEmailConfirmed = true; // Email confirmation must now be done via OTP
+            user.IsEmailConfirmed = true; 
             user.EmailConfirmationToken = null;
             await _context.SaveChangesAsync();
-            return Ok("Konto bestätigt.");
+            return Ok(new { message = "Konto bestätigt." });
         }
 
         [AllowAnonymous]
