@@ -21,7 +21,10 @@ namespace ServiceApotheke.API.Models
         [Phone]
         public string PhoneNumber { get; set; } = string.Empty;
 
-        public string Address { get; set; } = string.Empty;
+        public string Street { get; set; } = string.Empty;
+        public string HouseNumber { get; set; } = string.Empty;
+        public string PostalCode { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
 
@@ -59,6 +62,7 @@ namespace ServiceApotheke.API.Models
         // Dateipfade
         public string? ApprobationDocumentPath { get; set; }
         public string? CvDocumentPath { get; set; }
+        public string? ProfilePicturePath { get; set; }
 
         // KYC & AÜG Compliance
         public bool IsKycVerified { get; set; } = false;

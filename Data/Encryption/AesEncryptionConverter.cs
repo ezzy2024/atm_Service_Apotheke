@@ -55,7 +55,10 @@ namespace ServiceApotheke.API.Services.Workers
                         pharmacist.FullName = "ANONYMIZED";
                         pharmacist.Email = $"deleted_{Guid.NewGuid()}@anonymized.local";
                         pharmacist.PhoneNumber = "ANONYMIZED";
-                        pharmacist.Address = "ANONYMIZED";
+                        pharmacist.Street = "ANONYMIZED";
+                        pharmacist.HouseNumber = "ANONYMIZED";
+                        pharmacist.PostalCode = "ANONYMIZED";
+                        pharmacist.City = "ANONYMIZED";
                         pharmacist.PasswordHash = string.Empty;
                         pharmacist.ApprobationDocumentPath = null;
                         pharmacist.CvDocumentPath = null;

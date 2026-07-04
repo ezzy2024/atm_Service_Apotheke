@@ -46,7 +46,10 @@ namespace ServiceApotheke.API.Controllers
                 Email = registration.Email,
                 PasswordHash = passwordHash,
                 PhoneNumber = registration.PhoneNumber,
-                Address = registration.Address,
+                Street = registration.Street,
+                HouseNumber = registration.HouseNumber,
+                PostalCode = registration.PostalCode,
+                City = registration.City,
                 Qualification = registration.Qualification,
                 WwsProficiency = registration.WwsProficiency,
                 EmailConfirmationToken = token,
@@ -161,7 +164,10 @@ namespace ServiceApotheke.API.Controllers
 
             user.FullName = dto.FullName ?? user.FullName;
             user.PhoneNumber = dto.Phone ?? user.PhoneNumber;
-            user.Address = dto.Address ?? user.Address;
+            user.Street = dto.Street ?? user.Street;
+            user.HouseNumber = dto.HouseNumber ?? user.HouseNumber;
+            user.PostalCode = dto.PostalCode ?? user.PostalCode;
+            user.City = dto.City ?? user.City;
             user.MaxDistanceKm = dto.MaxDistanceKm;
             user.AvailableDaysPerWeek = dto.AvailableDaysPerWeek;
             
@@ -225,33 +231,52 @@ namespace ServiceApotheke.API.Controllers
             return Ok();
         }
 
-        [HttpPost("{id}/upload-approbation")]
-        public async Task<IActionResult> UploadApprobation(int id, IFormFile file)
+        [HttpPost("{id}/upload-documents")]
+        public async Task<IActionResult> UploadDocuments(int id, IFormFile? approbation, IFormFile? cv, IFormFile? profilePicture)
         {
             var user = await _context.Pharmacists.FindAsync(id);
             if (user == null) return NotFound();
 
-            if (file == null || file.Length == 0)
-                return BadRequest("No file uploaded.");
+            if (approbation == null && cv == null && profilePicture == null)
+                return BadRequest("No files uploaded.");
 
-            var uploadsFolder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "uploads", "approbations");
+            var uploadsFolder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "uploads");
             if (!System.IO.Directory.Exists(uploadsFolder))
                 System.IO.Directory.CreateDirectory(uploadsFolder);
 
-            var fileName = $"{id}_{System.Guid.NewGuid()}_{file.FileName}";
-            var filePath = System.IO.Path.Combine(uploadsFolder, fileName);
-
-            using (var stream = new System.IO.FileStream(filePath, System.IO.FileMode.Create))
+            async Task<string> SaveFileAsync(IFormFile file, string type)
             {
-                await file.CopyToAsync(stream);
+                var folder = System.IO.Path.Combine(uploadsFolder, type);
+                if (!System.IO.Directory.Exists(folder))
+                    System.IO.Directory.CreateDirectory(folder);
+
+                var fileName = $"{id}_{System.Guid.NewGuid()}_{file.FileName}";
+                var filePath = System.IO.Path.Combine(folder, fileName);
+
+                using (var stream = new System.IO.FileStream(filePath, System.IO.FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+                return filePath;
             }
 
-            // In a real app, you would save filePath to a specific column like ApprobationDocumentPath
-            // For now, we just set the boolean flag
-            user.HasApprobation = true;
+            if (approbation != null)
+            {
+                user.ApprobationDocumentPath = await SaveFileAsync(approbation, "approbations");
+                user.HasApprobation = true;
+            }
+            if (cv != null)
+            {
+                user.CvDocumentPath = await SaveFileAsync(cv, "cvs");
+            }
+            if (profilePicture != null)
+            {
+                user.ProfilePicturePath = await SaveFileAsync(profilePicture, "profiles");
+            }
+
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Approbationsurkunde erfolgreich hochgeladen." });
+            return Ok(new { message = "Dokumente erfolgreich hochgeladen." });
         }
     }
 
@@ -261,7 +286,10 @@ namespace ServiceApotheke.API.Controllers
     {
         public string? FullName { get; set; }
         public string? Phone { get; set; }
-        public string? Address { get; set; }
+        public string? Street { get; set; }
+        public string? HouseNumber { get; set; }
+        public string? PostalCode { get; set; }
+        public string? City { get; set; }
         public int MaxDistanceKm { get; set; }
         public int AvailableDaysPerWeek { get; set; }
     }

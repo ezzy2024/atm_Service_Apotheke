@@ -49,7 +49,10 @@ namespace ServiceApotheke.API.Controllers
             pharmacist.FullName = "Anonymized User";
             pharmacist.Email = $"anonymized_{Guid.NewGuid()}@deleted.local";
             pharmacist.PhoneNumber = "DELETED";
-            pharmacist.Address = "DELETED";
+            pharmacist.Street = "DELETED";
+            pharmacist.HouseNumber = "DELETED";
+            pharmacist.PostalCode = "DELETED";
+            pharmacist.City = "DELETED";
             pharmacist.IdCardDocumentPath = null;
             pharmacist.LiabilityInsuranceDocumentPath = null;
             pharmacist.TaxId = null;
