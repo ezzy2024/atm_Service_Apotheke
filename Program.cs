@@ -156,12 +156,28 @@ using (var scope = app.Services.CreateScope())
     {
         try 
         {
-            db.Database.Migrate();
-            Console.WriteLine("Successfully applied EF Core migrations.");
+            db.Database.ExecuteSqlRaw(@"
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""BillingModel"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""CountryOfLicense"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""IsVatRequired"" boolean DEFAULT false;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""TravelCostModel"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""Street"" text DEFAULT '';
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""HouseNumber"" text DEFAULT '';
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""PostalCode"" text DEFAULT '';
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""City"" text DEFAULT '';
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""ApprobationDocumentPath"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""CvDocumentPath"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""ProfilePicturePath"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""ContractTermsAccepted"" boolean DEFAULT false;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""ContractTermsAcceptedAt"" timestamp with time zone;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""TaxId"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""TradeRegisterNumber"" text;
+            ");
+            Console.WriteLine("Successfully added missing Pharmacists columns manually.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"EF Core Migration failed: {ex.Message}");
+            Console.WriteLine($"Raw SQL Migration failed: {ex.Message}");
         }
 
         try 
