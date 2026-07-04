@@ -156,6 +156,16 @@ using (var scope = app.Services.CreateScope())
     {
         try 
         {
+            db.Database.Migrate();
+            Console.WriteLine("Successfully applied EF Core migrations.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"EF Core Migration failed: {ex.Message}");
+        }
+
+        try 
+        {
             db.Database.ExecuteSqlRaw("ALTER TABLE \"JobPosts\" ADD COLUMN \"Description\" text;");
             Console.WriteLine("Successfully added Description column to JobPosts.");
         } 
