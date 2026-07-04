@@ -7,16 +7,23 @@ namespace ServiceApotheke.API.Services
 {
     public class EmailService
     {
+        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
+
+        public EmailService(Microsoft.Extensions.Configuration.IConfiguration configuration)
+        {
+            _configuration = configuration;
+        }
+
         public async Task SendEmailAsync(string toEmail, string subject, string message, byte[]? attachmentBytes = null, string? attachmentName = null)
         {
-            var host = Environment.GetEnvironmentVariable("SMTP_HOST") ?? "smtp.ionos.de";
-            var portStr = Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587";
-            var user = Environment.GetEnvironmentVariable("SMTP_USER");
-            var pass = Environment.GetEnvironmentVariable("SMTP_PASS");
+            var host = _configuration["SmtpSettings:Server"] ?? _configuration["SmtpSettings__Server"] ?? Environment.GetEnvironmentVariable("SMTP_HOST") ?? "smtp.ionos.de";
+            var portStr = _configuration["SmtpSettings:Port"] ?? _configuration["SmtpSettings__Port"] ?? Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587";
+            var user = _configuration["SmtpSettings:Username"] ?? _configuration["SmtpSettings__Username"] ?? Environment.GetEnvironmentVariable("SMTP_USER");
+            var pass = _configuration["SmtpSettings:Password"] ?? _configuration["SmtpSettings__Password"] ?? Environment.GetEnvironmentVariable("SMTP_PASS");
 
             if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass))
             {
-                Console.WriteLine("[EMAIL ERROR] SMTP Credentials missing.");
+                Console.WriteLine($"[EMAIL MOCK - Credentials missing]\nTo: {toEmail}\nSubject: {subject}\nBody: {message}");
                 return;
             }
 
