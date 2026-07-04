@@ -98,6 +98,7 @@ builder.Services.AddDataProtection()
     .ProtectKeysWithGoogleKms("projects/830781040278/locations/europe-west3/keyRings/sa-keyring/cryptoKeys/dp-key");
 
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.DataRetentionWorker>();
+builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.GeocodingBackfillWorker>();
 builder.Services.AddScoped<IRedMedicalService, RedMedicalService>();
 
 var app = builder.Build();

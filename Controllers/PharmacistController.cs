@@ -23,11 +23,13 @@ namespace ServiceApotheke.API.Controllers
     {
         private readonly DataContext _context;
         private readonly EmailService _emailService;
+        private readonly IGeocodingService _geocodingService;
 
-        public PharmacistController(DataContext context, EmailService emailService)
+        public PharmacistController(DataContext context, EmailService emailService, IGeocodingService geocodingService)
         {
             _context = context;
             _emailService = emailService;
+            _geocodingService = geocodingService;
         }
 
         [AllowAnonymous]
@@ -40,6 +42,8 @@ namespace ServiceApotheke.API.Controllers
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(registration.Password);
             string token = new Random().Next(100000, 999999).ToString();
 
+            var coords = await _geocodingService.GetCoordinatesAsync($"{registration.Street} {registration.HouseNumber}, {registration.PostalCode} {registration.City}, Germany");
+
             var pharmacist = new Pharmacist
             {
                 FullName = registration.FullName,
@@ -50,6 +54,8 @@ namespace ServiceApotheke.API.Controllers
                 HouseNumber = registration.HouseNumber,
                 PostalCode = registration.PostalCode,
                 City = registration.City,
+                Latitude = coords?.Latitude,
+                Longitude = coords?.Longitude,
                 Qualification = registration.Qualification,
                 WwsProficiency = registration.WwsProficiency,
                 EmailConfirmationToken = token,
@@ -162,6 +168,11 @@ namespace ServiceApotheke.API.Controllers
             var user = await _context.Pharmacists.FindAsync(id);
             if (user == null) return NotFound();
 
+            bool addressChanged = (dto.Street != null && dto.Street != user.Street) ||
+                                  (dto.HouseNumber != null && dto.HouseNumber != user.HouseNumber) ||
+                                  (dto.PostalCode != null && dto.PostalCode != user.PostalCode) ||
+                                  (dto.City != null && dto.City != user.City);
+
             user.FullName = dto.FullName ?? user.FullName;
             user.PhoneNumber = dto.Phone ?? user.PhoneNumber;
             user.Street = dto.Street ?? user.Street;
@@ -171,6 +182,16 @@ namespace ServiceApotheke.API.Controllers
             user.MaxDistanceKm = dto.MaxDistanceKm;
             user.AvailableDaysPerWeek = dto.AvailableDaysPerWeek;
             
+            if (addressChanged || user.Latitude == null || user.Longitude == null)
+            {
+                var coords = await _geocodingService.GetCoordinatesAsync($"{user.Street} {user.HouseNumber}, {user.PostalCode} {user.City}, Germany");
+                if (coords != null)
+                {
+                    user.Latitude = coords.Value.Latitude;
+                    user.Longitude = coords.Value.Longitude;
+                }
+            }
+
             await _context.SaveChangesAsync();
             return Ok(user);
         }

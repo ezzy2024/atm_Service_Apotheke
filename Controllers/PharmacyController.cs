@@ -20,11 +20,13 @@ namespace ServiceApotheke.API.Controllers
     {
         private readonly DataContext _context;
         private readonly EmailService _emailService;
+        private readonly IGeocodingService _geocodingService;
 
-        public PharmacyController(DataContext context, EmailService emailService)
+        public PharmacyController(DataContext context, EmailService emailService, IGeocodingService geocodingService)
         {
             _context = context;
             _emailService = emailService;
+            _geocodingService = geocodingService;
         }
 
         [AllowAnonymous]
@@ -37,6 +39,8 @@ namespace ServiceApotheke.API.Controllers
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(registration.Password);
             string token = new Random().Next(100000, 999999).ToString();
 
+            var coords = await _geocodingService.GetCoordinatesAsync($"{registration.Street} {registration.HouseNumber}, {registration.PostalCode} {registration.City}, Germany");
+
             var pharmacy = new Pharmacy
             {
                 PharmacyName = registration.PharmacyName,
@@ -47,6 +51,8 @@ namespace ServiceApotheke.API.Controllers
                 HouseNumber = registration.HouseNumber,
                 PostalCode = registration.PostalCode,
                 City = registration.City,
+                Latitude = coords?.Latitude,
+                Longitude = coords?.Longitude,
                 LicenseNumber = registration.LicenseNumber,
                 EmailConfirmationToken = token,
                 IsEmailConfirmed = false,
@@ -161,11 +167,26 @@ namespace ServiceApotheke.API.Controllers
             var pharmacy = await _context.Pharmacies.FindAsync(id);
             if (pharmacy == null) return NotFound(new { message = "Apotheke nicht gefunden." });
 
+            bool addressChanged = (dto.Street != null && dto.Street != pharmacy.Street) ||
+                                  (dto.HouseNumber != null && dto.HouseNumber != pharmacy.HouseNumber) ||
+                                  (dto.PostalCode != null && dto.PostalCode != pharmacy.PostalCode) ||
+                                  (dto.City != null && dto.City != pharmacy.City);
+
             pharmacy.PharmacyName = dto.PharmacyName ?? pharmacy.PharmacyName;
             pharmacy.PhoneNumber = dto.PhoneNumber ?? pharmacy.PhoneNumber;
             pharmacy.Street = dto.Street ?? pharmacy.Street; pharmacy.HouseNumber = dto.HouseNumber ?? pharmacy.HouseNumber; pharmacy.PostalCode = dto.PostalCode ?? pharmacy.PostalCode; pharmacy.City = dto.City ?? pharmacy.City;
             pharmacy.LicenseNumber = dto.LicenseNumber ?? pharmacy.LicenseNumber;
             pharmacy.SoftwareSystem = dto.SoftwareSystem ?? pharmacy.SoftwareSystem;
+
+            if (addressChanged || pharmacy.Latitude == null || pharmacy.Longitude == null)
+            {
+                var coords = await _geocodingService.GetCoordinatesAsync($"{pharmacy.Street} {pharmacy.HouseNumber}, {pharmacy.PostalCode} {pharmacy.City}, Germany");
+                if (coords != null)
+                {
+                    pharmacy.Latitude = coords.Value.Latitude;
+                    pharmacy.Longitude = coords.Value.Longitude;
+                }
+            }
 
             await _context.SaveChangesAsync();
             return Ok(new { message = "Profil erfolgreich aktualisiert." });
@@ -183,12 +204,27 @@ namespace ServiceApotheke.API.Controllers
             var pharmacy = await _context.Pharmacies.FindAsync(userId);
             if (pharmacy == null) return NotFound(new { message = "Apotheke nicht gefunden." });
 
+            bool addressChanged = (dto.Street != null && dto.Street != pharmacy.Street) ||
+                                  (dto.HouseNumber != null && dto.HouseNumber != pharmacy.HouseNumber) ||
+                                  (dto.PostalCode != null && dto.PostalCode != pharmacy.PostalCode) ||
+                                  (dto.City != null && dto.City != pharmacy.City);
+
             pharmacy.PharmacyName = dto.PharmacyName ?? pharmacy.PharmacyName;
             pharmacy.PhoneNumber = dto.PhoneNumber ?? pharmacy.PhoneNumber;
             pharmacy.Street = dto.Street ?? pharmacy.Street; pharmacy.HouseNumber = dto.HouseNumber ?? pharmacy.HouseNumber; pharmacy.PostalCode = dto.PostalCode ?? pharmacy.PostalCode; pharmacy.City = dto.City ?? pharmacy.City;
             pharmacy.LicenseNumber = dto.LicenseNumber ?? pharmacy.LicenseNumber;
             pharmacy.SoftwareSystem = dto.SoftwareSystem ?? pharmacy.SoftwareSystem;
             pharmacy.ContactPerson = dto.ContactPerson ?? pharmacy.ContactPerson;
+
+            if (addressChanged || pharmacy.Latitude == null || pharmacy.Longitude == null)
+            {
+                var coords = await _geocodingService.GetCoordinatesAsync($"{pharmacy.Street} {pharmacy.HouseNumber}, {pharmacy.PostalCode} {pharmacy.City}, Germany");
+                if (coords != null)
+                {
+                    pharmacy.Latitude = coords.Value.Latitude;
+                    pharmacy.Longitude = coords.Value.Longitude;
+                }
+            }
 
             await _context.SaveChangesAsync();
             return Ok(new { message = "Profil erfolgreich aktualisiert." });
