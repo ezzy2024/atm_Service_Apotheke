@@ -16,6 +16,10 @@ namespace ServiceApotheke.API.Models.PDL
         public string Geburt { get; set; } // z.B. "1950" or "01.01.1950"
         public string Gender { get; set; }
 
+        public int MedicationCount { get; set; }
+        public bool IsEligibleForAmts { get; set; }
+        public string MedicationsJson { get; set; } = "[]";
+
         public ICollection<PdlService> PdlServices { get; set; }
         public ICollection<PdlDocument> PdlDocuments { get; set; }
 

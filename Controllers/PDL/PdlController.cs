@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using System.Text.Json;
 using System;
+using Microsoft.AspNetCore.Hosting;
 
 namespace ServiceApotheke.API.Controllers.PDL
 {
@@ -23,11 +24,15 @@ namespace ServiceApotheke.API.Controllers.PDL
     {
         private readonly DataContext _context;
         private readonly AiAnalysisService _aiService;
+        private readonly PdlReportEngine _reportEngine;
+        private readonly IWebHostEnvironment _env;
 
-        public PdlController(DataContext context, AiAnalysisService aiService)
+        public PdlController(DataContext context, AiAnalysisService aiService, PdlReportEngine reportEngine, IWebHostEnvironment env)
         {
             _context = context;
             _aiService = aiService;
+            _reportEngine = reportEngine;
+            _env = env;
         }
 
         [HttpPost("ingest")]
@@ -45,10 +50,8 @@ namespace ServiceApotheke.API.Controllers.PDL
             await file.CopyToAsync(stream);
             stream.Position = 0;
 
-            // Parse excel dynamically
             var rows = stream.Query().ToList();
             
-            // Expected columns: KdnNr, Geburtsjahr, Geschlecht, Medikament
             var groupedPatients = rows.GroupBy(r => {
                 var dict = r as IDictionary<string, object>;
                 if (dict != null && dict.ContainsKey("KdnNr")) return dict["KdnNr"]?.ToString() ?? "";
@@ -82,11 +85,14 @@ namespace ServiceApotheke.API.Controllers.PDL
                     var d = r as IDictionary<string, object>;
                     if (d != null && d.ContainsKey("Medikament") && d["Medikament"] != null)
                     {
-                        medications.Add(d["Medikament"].ToString());
+                        var medName = d["Medikament"].ToString();
+                        if (!string.IsNullOrEmpty(medName)) medications.Add(medName);
                     }
                 }
 
-                // Save/Update Patient
+                bool isEligible = medications.Count >= 5;
+                if (isEligible) eligibleCount++;
+
                 var patient = await _context.Patients.FirstOrDefaultAsync(p => p.PharmacyId == pharmacy.Id && p.KdnNr == kdnNr);
                 if (patient == null)
                 {
@@ -97,54 +103,32 @@ namespace ServiceApotheke.API.Controllers.PDL
                         Geburt = birthYear.ToString(),
                         Gender = gender,
                         Name = "Anonymisiert",
-                        Vorname = "Anonymisiert"
+                        Vorname = "Anonymisiert",
+                        MedicationCount = medications.Count,
+                        IsEligibleForAmts = isEligible,
+                        MedicationsJson = JsonSerializer.Serialize(medications)
                     };
                     _context.Patients.Add(patient);
-                    await _context.SaveChangesAsync();
                 }
-
-                // Analyze AMTS if they have >= 5 meds
-                if (medications.Count >= 5)
+                else
                 {
-                    // Check if we already did an analysis recently
-                    var existingService = await _context.PdlServices.FirstOrDefaultAsync(s => s.PatientId == patient.Id && s.ServiceType == "POLYMEDIKATION");
-                    if (existingService == null)
-                    {
-                        var aiResult = await _aiService.AnalyzePolymedicationAsync(birthYear, gender, medications);
-
-                        bool isEligible = false;
-                        try
-                        {
-                            using var doc = JsonDocument.Parse(aiResult);
-                            isEligible = doc.RootElement.GetProperty("isEligibleForPdl").GetBoolean();
-                        }
-                        catch { }
-
-                        if (isEligible)
-                        {
-                            eligibleCount++;
-                            var service = new PdlService
-                            {
-                                PatientId = patient.Id,
-                                ServiceType = "POLYMEDIKATION",
-                                Status = "PLANNED",
-                                AiAnalysisResultJson = aiResult
-                            };
-                            _context.PdlServices.Add(service);
-                        }
-                    }
+                    patient.Geburt = birthYear.ToString();
+                    patient.Gender = gender;
+                    patient.MedicationCount = medications.Count;
+                    patient.IsEligibleForAmts = isEligible;
+                    patient.MedicationsJson = JsonSerializer.Serialize(medications);
+                    _context.Patients.Update(patient);
                 }
                 
                 processedCount++;
             }
 
             await _context.SaveChangesAsync();
-
             return Ok(new { success = true, processed = processedCount, newlyEligible = eligibleCount });
         }
 
-        [HttpGet("services")]
-        public async Task<IActionResult> GetServices()
+        [HttpGet("patients")]
+        public async Task<IActionResult> GetPatients()
         {
             var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!int.TryParse(userId, out int pharmacyUserId)) return Unauthorized();
@@ -152,21 +136,92 @@ namespace ServiceApotheke.API.Controllers.PDL
             var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.Id == pharmacyUserId);
             if (pharmacy == null) return Unauthorized();
 
-            var services = await _context.PdlServices
-                .Include(s => s.Patient)
-                .Where(s => s.Patient.PharmacyId == pharmacy.Id)
-                .OrderByDescending(s => s.CreatedAt)
-                .Select(s => new {
-                    s.Id,
-                    s.ServiceType,
-                    s.Status,
-                    s.CreatedAt,
-                    PatientKdnNr = s.Patient.KdnNr,
-                    AnalysisSummary = s.AiAnalysisResultJson
+            var patients = await _context.Patients
+                .Include(p => p.PdlServices)
+                .Where(p => p.PharmacyId == pharmacy.Id)
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new {
+                    p.Id,
+                    p.KdnNr,
+                    p.Geburt,
+                    p.Gender,
+                    p.MedicationCount,
+                    p.IsEligibleForAmts,
+                    HasAnalysis = p.PdlServices.Any(s => s.ServiceType == "POLYMEDIKATION"),
+                    LatestPdfUrl = p.PdlServices.Where(s => s.ServiceType == "POLYMEDIKATION")
+                                      .SelectMany(s => _context.PdlDocuments.Where(d => d.PdlServiceId == s.Id))
+                                      .Select(d => d.PdfUrl)
+                                      .FirstOrDefault()
                 })
                 .ToListAsync();
 
-            return Ok(services);
+            return Ok(patients);
+        }
+
+        [HttpPost("analyze/{patientId}")]
+        public async Task<IActionResult> AnalyzePatient(int patientId)
+        {
+            var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userId, out int pharmacyUserId)) return Unauthorized();
+
+            var patient = await _context.Patients
+                .Include(p => p.Pharmacy)
+                .FirstOrDefaultAsync(p => p.Id == patientId && p.Pharmacy.Id == pharmacyUserId);
+                
+            if (patient == null) return NotFound("Patient not found.");
+            if (!patient.IsEligibleForAmts) return BadRequest("Patient is not eligible for AMTS.");
+
+            var existingService = await _context.PdlServices.FirstOrDefaultAsync(s => s.PatientId == patient.Id && s.ServiceType == "POLYMEDIKATION");
+            
+            var medications = JsonSerializer.Deserialize<List<string>>(patient.MedicationsJson) ?? new List<string>();
+            int birthYear = int.TryParse(patient.Geburt, out int y) ? y : 1960;
+
+            // Generate AI Analysis
+            var aiResult = await _aiService.AnalyzePolymedicationAsync(birthYear, patient.Gender, medications);
+
+            PdlService service;
+            if (existingService == null)
+            {
+                service = new PdlService
+                {
+                    PatientId = patient.Id,
+                    ServiceType = "POLYMEDIKATION",
+                    Status = "PERFORMED",
+                    AiAnalysisResultJson = aiResult,
+                    PerformedAt = DateTime.UtcNow
+                };
+                _context.PdlServices.Add(service);
+                await _context.SaveChangesAsync(); // save to get ID
+            }
+            else
+            {
+                service = existingService;
+                service.AiAnalysisResultJson = aiResult;
+                service.Status = "PERFORMED";
+                service.PerformedAt = DateTime.UtcNow;
+                _context.PdlServices.Update(service);
+                await _context.SaveChangesAsync();
+            }
+
+            // Generate QuestPDF Report
+            var pdfRelativePath = _reportEngine.GeneratePolymedicationReport(service, _env.WebRootPath);
+
+            var doc = new PdlDocument
+            {
+                PatientId = patient.Id,
+                PharmacyId = patient.PharmacyId,
+                PdlServiceId = service.Id,
+                PdfUrl = pdfRelativePath,
+                BillingAmount = 90.00m // standard fee
+            };
+            _context.PdlDocuments.Add(doc);
+            
+            service.Status = "BILLED";
+            service.BilledAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true, pdfUrl = pdfRelativePath });
         }
     }
 }
