@@ -33,6 +33,7 @@ namespace ServiceApotheke.API.Controllers
 
         [AllowAnonymous]
         [HttpPost("register")]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> Register([FromForm] PharmacyRegDto registration, IFormFile? documentFile)
         {
             if (await _context.Pharmacies.AnyAsync(p => p.Email == registration.Email))
