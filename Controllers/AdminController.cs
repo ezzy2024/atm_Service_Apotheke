@@ -9,11 +9,13 @@ using System.Security.Claims;
 using System.Text;
 using System;
 using ServiceApotheke.API.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace ServiceApotheke.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "admin")]
     public class AdminController : ControllerBase
     {
         private readonly DataContext _context;
@@ -23,6 +25,7 @@ namespace ServiceApotheke.API.Controllers
             _context = context;
         }
 
+        [AllowAnonymous]
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginDto login)
         {
@@ -47,27 +50,40 @@ namespace ServiceApotheke.API.Controllers
             return Unauthorized(new { message = "Root-Zugriff verweigert." });
         }
 
-        [HttpGet("pending/pharmacists")]
+        [HttpGet("pharmacists/pending")]
         public async Task<IActionResult> GetPendingPharmacists()
         {
             var data = await _context.Pharmacists
                 .Where(p => !p.IsVerified)
-                .Select(p => new { p.Id, p.FullName, p.Email, p.PhoneNumber, p.ApprobationCountry })
+                .Select(p => new { 
+                    p.Id, 
+                    p.FullName, 
+                    p.Email, 
+                    p.PhoneNumber, 
+                    p.ApprobationCountry,
+                    p.ApprobationDocumentPath 
+                })
                 .ToListAsync();
             return Ok(data);
         }
 
-        [HttpGet("pending/pharmacies")]
+        [HttpGet("pharmacies/pending")]
         public async Task<IActionResult> GetPendingPharmacies()
         {
             var data = await _context.Pharmacies
                 .Where(p => !p.IsVerified)
-                .Select(p => new { p.Id, p.PharmacyName, p.Email, p.LicenseNumber, Address = p.Street + " " + p.HouseNumber + ", " + p.PostalCode + " " + p.City })
+                .Select(p => new { 
+                    p.Id, 
+                    p.PharmacyName, 
+                    p.Email, 
+                    p.LicenseNumber, 
+                    Address = p.Street + " " + p.HouseNumber + ", " + p.PostalCode + " " + p.City 
+                })
                 .ToListAsync();
             return Ok(data);
         }
 
-        [HttpPut("verify/pharmacist/{id}")]
+        [HttpPatch("pharmacists/{id}/verify")]
         public async Task<IActionResult> VerifyPharmacist(int id)
         {
             var p = await _context.Pharmacists.FindAsync(id);
@@ -77,7 +93,7 @@ namespace ServiceApotheke.API.Controllers
             return Ok();
         }
 
-        [HttpPut("verify/pharmacy/{id}")]
+        [HttpPatch("pharmacies/{id}/verify")]
         public async Task<IActionResult> VerifyPharmacy(int id)
         {
             var p = await _context.Pharmacies.FindAsync(id);
@@ -85,6 +101,23 @@ namespace ServiceApotheke.API.Controllers
             p.IsVerified = true;
             await _context.SaveChangesAsync();
             return Ok();
+        }
+
+        [HttpGet("finance")]
+        public async Task<IActionResult> GetFinanceAggregation()
+        {
+            var totalCommission = await _context.Invoices
+                .Where(i => i.Type == "PlatformCommissionInvoice")
+                .SumAsync(i => i.TotalAmount);
+
+            var totalInvoicesCount = await _context.Invoices
+                .Where(i => i.Type == "PlatformCommissionInvoice")
+                .CountAsync();
+
+            return Ok(new {
+                Revenue = totalCommission,
+                CommissionInvoicesCount = totalInvoicesCount
+            });
         }
     }
 }
