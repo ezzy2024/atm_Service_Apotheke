@@ -29,6 +29,11 @@ namespace ServiceApotheke.API.Controllers
                 .OrderByDescending(t => t.ActualStartDate)
                 .ToListAsync();
 
+            var timesheetIds = timesheets.Select(t => t.Id).ToList();
+            var invoices = await _context.Invoices
+                .Where(i => timesheetIds.Contains(i.TimesheetId) && i.Type == "PharmacistServiceInvoice")
+                .ToListAsync();
+
             double totalEarnings = 0;
             var history = new List<object>();
 
@@ -36,19 +41,28 @@ namespace ServiceApotheke.API.Controllers
             {
                 var duration = t.ActualEndTime - t.ActualStartTime;
                 double hours = duration.TotalHours;
+                if (hours < 0) hours += 24;
                 double hourlyRate = (double)t.HourlyRate;
                 double earning = hours * hourlyRate;
                 
                 totalEarnings += earning;
 
+                var invoice = invoices.FirstOrDefault(i => i.TimesheetId == t.Id);
+
                 history.Add(new {
                     timesheetId = t.Id,
                     date = t.ActualStartDate.ToString("yyyy-MM-dd"),
+                    startTime = t.ActualStartTime.ToString(@"hh\:mm"),
+                    endTime = t.ActualEndTime.ToString(@"hh\:mm"),
+                    travelCosts = t.TravelCosts,
+                    accommodationCosts = t.AccommodationCosts,
                     pharmacyName = t.JobApplication.JobPost.Pharmacy.PharmacyName,
                     hours = Math.Round(hours, 2),
                     hourlyRate = hourlyRate,
                     total = Math.Round(earning, 2),
-                    status = t.Status
+                    status = t.Status,
+                    disputeReason = t.DisputeReason,
+                    invoiceId = invoice?.Id
                 });
             }
 

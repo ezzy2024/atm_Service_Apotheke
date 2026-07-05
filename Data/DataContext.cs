@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System.Security.Claims;
 using ServiceApotheke.API.Models;
+using ServiceApotheke.API.Models.ATM;
 
 namespace ServiceApotheke.API.Data
 {
@@ -121,6 +122,11 @@ namespace ServiceApotheke.API.Data
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Notification> Notifications { get; set; }
 
+        public DbSet<KioskTerminal> KioskTerminals { get; set; }
+        public DbSet<ConsentAgreement> ConsentAgreements { get; set; }
+        public DbSet<AtmBillingRecord> AtmBillingRecords { get; set; }
+        public DbSet<SessionTelemetry> SessionTelemetries { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             var encryptionKey = Environment.GetEnvironmentVariable("DB_ENCRYPTION_KEY") 
@@ -134,6 +140,31 @@ namespace ServiceApotheke.API.Data
             modelBuilder.Entity<Pharmacy>().HasIndex(p => p.PharmacyName);
             
             modelBuilder.Entity<JobPost>().UseXminAsConcurrencyToken();
+
+            // ATM Module cascade configurations
+            modelBuilder.Entity<KioskTerminal>()
+                .HasOne(k => k.Pharmacy)
+                .WithMany()
+                .HasForeignKey(k => k.PharmacyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ConsentAgreement>()
+                .HasOne(c => c.Pharmacy)
+                .WithMany()
+                .HasForeignKey(c => c.PharmacyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<AtmBillingRecord>()
+                .HasOne(a => a.Pharmacy)
+                .WithMany()
+                .HasForeignKey(a => a.PharmacyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SessionTelemetry>()
+                .HasOne(s => s.Pharmacy)
+                .WithMany()
+                .HasForeignKey(s => s.PharmacyId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             if (Database.IsRelational())
             {
