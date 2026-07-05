@@ -92,7 +92,31 @@ namespace ServiceApotheke.API.Controllers
             if (string.IsNullOrWhiteSpace(contactPerson)) contactPerson = "Unbekannt";
 
             var invoiceService = new ServiceApotheke.API.Services.InvoiceService();
-            var pdfBytes = invoiceService.GeneratePharmacyInvoice(invoice.Id, invoice.Timesheet, pharmacyName, pharmacyAddress, contactPerson);
+            byte[] pdfBytes;
+
+            if (!string.IsNullOrEmpty(invoice.PdfFilePath))
+            {
+                var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", invoice.PdfFilePath.TrimStart('/').Replace("/", "\\"));
+                if (System.IO.File.Exists(filePath))
+                {
+                    pdfBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+                    return File(pdfBytes, "application/pdf", $"Rechnung_{invoice.InvoiceNumber}.pdf");
+                }
+            }
+
+            if (invoice.Timesheet != null && invoice.Timesheet.JobApplication != null && invoice.Timesheet.JobApplication.Pharmacist == null) {
+                invoice.Timesheet.JobApplication.Pharmacist = await _context.Pharmacists.FindAsync(invoice.Timesheet.JobApplication.PharmacistId);
+            }
+            var pharmacist = invoice.Timesheet?.JobApplication?.Pharmacist;
+
+            if (invoice.Type == "PharmacistServiceInvoice" && pharmacist != null)
+            {
+                pdfBytes = invoiceService.GeneratePharmacistServiceInvoice(invoice.Id, invoice.Timesheet, pharmacyName, pharmacyAddress, contactPerson, pharmacist);
+            }
+            else
+            {
+                pdfBytes = invoiceService.GeneratePlatformCommissionInvoice(invoice.Id, invoice.Timesheet, pharmacyName, pharmacyAddress, contactPerson);
+            }
 
             return File(pdfBytes, "application/pdf", $"Rechnung_{invoice.InvoiceNumber}.pdf");
         }

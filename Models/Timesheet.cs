@@ -18,5 +18,8 @@ namespace ServiceApotheke.API.Models
         
         // Status: "Submitted" (Eingereicht), "Approved" (Freigegeben), "Disputed" (Konflikt)
         public string Status { get; set; } = "Submitted";
+        
+        public string? DisputeReason { get; set; }
+        public DateTime? DisputedAt { get; set; }
     }
 }

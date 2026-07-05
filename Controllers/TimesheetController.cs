@@ -5,6 +5,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using ServiceApotheke.API.Data;
 using ServiceApotheke.API.Models;
+using ServiceApotheke.API.Services;
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -31,7 +32,7 @@ namespace ServiceApotheke.API.Controllers
                     .ThenInclude(ja => ja.JobPost!)
                 .Include(t => t.JobApplication!)
                     .ThenInclude(ja => ja.Pharmacist!)
-                .Where(t => t.JobApplication!.JobPost!.PharmacyId == pharmacyId && t.Status == "Submitted")
+                .Where(t => t.JobApplication!.JobPost!.PharmacyId == pharmacyId && (t.Status == "Submitted" || t.Status == "Disputed"))
                 .Select(t => new
                 {
                     id = t.Id,
@@ -42,7 +43,9 @@ namespace ServiceApotheke.API.Controllers
                     totalHours = (t.ActualEndTime - t.ActualStartTime).TotalHours,
                     travelCosts = t.TravelCosts,
                     accommodationCosts = t.AccommodationCosts,
-                    totalExpected = ((decimal)(t.ActualEndTime - t.ActualStartTime).TotalHours * t.HourlyRate) + t.TravelCosts + t.AccommodationCosts
+                    totalExpected = ((decimal)(t.ActualEndTime - t.ActualStartTime).TotalHours * t.HourlyRate) + t.TravelCosts + t.AccommodationCosts,
+                    status = t.Status,
+                    disputeReason = t.DisputeReason
                 })
                 .ToListAsync();
 
@@ -56,41 +59,130 @@ namespace ServiceApotheke.API.Controllers
             if (application == null) return NotFound(new { message = "Bewerbung nicht gefunden." });
 
             timesheet.Status = "Submitted";
+            timesheet.DisputeReason = null;
+            timesheet.DisputedAt = null;
+
             _context.Timesheets.Add(timesheet);
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Arbeitszeiten erfolgreich eingereicht." });
         }
 
-        [HttpPost("{timesheetId}/approve")]
-        public async Task<IActionResult> ApproveTimesheet(int timesheetId)
+        [HttpPut("{timesheetId}/revise")]
+        public async Task<IActionResult> ReviseTimesheet(int timesheetId, [FromBody] Timesheet revisedTimesheet)
         {
             var timesheet = await _context.Timesheets.FindAsync(timesheetId);
             if (timesheet == null) return NotFound(new { message = "Timesheet nicht gefunden." });
+            if (timesheet.Status != "Disputed") return BadRequest(new { message = "Nur konfliktbehaftete Stundenzettel können korrigiert werden." });
 
+            timesheet.ActualStartDate = revisedTimesheet.ActualStartDate;
+            timesheet.ActualStartTime = revisedTimesheet.ActualStartTime;
+            timesheet.ActualEndTime = revisedTimesheet.ActualEndTime;
+            timesheet.TravelCosts = revisedTimesheet.TravelCosts;
+            timesheet.AccommodationCosts = revisedTimesheet.AccommodationCosts;
+            timesheet.Status = "Submitted";
+            timesheet.DisputeReason = null;
+            timesheet.DisputedAt = null;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Stundenzettel korrigiert und erneut eingereicht." });
+        }
+
+        public class DisputeRequest
+        {
+            public string Reason { get; set; } = string.Empty;
+        }
+
+        [HttpPost("{timesheetId}/dispute")]
+        public async Task<IActionResult> DisputeTimesheet(int timesheetId, [FromBody] DisputeRequest request)
+        {
+            var timesheet = await _context.Timesheets.FindAsync(timesheetId);
+            if (timesheet == null) return NotFound(new { message = "Timesheet nicht gefunden." });
+            if (timesheet.Status == "Approved") return BadRequest(new { message = "Bereits freigegeben." });
+
+            timesheet.Status = "Disputed";
+            timesheet.DisputeReason = request.Reason;
+            timesheet.DisputedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Stundenzettel abgelehnt. Der Apotheker wurde benachrichtigt." });
+        }
+
+        [HttpPost("{timesheetId}/approve")]
+        public async Task<IActionResult> ApproveTimesheet(int timesheetId)
+        {
+            var timesheet = await _context.Timesheets
+                .Include(t => t.JobApplication!)
+                    .ThenInclude(ja => ja.JobPost!)
+                        .ThenInclude(jp => jp.Pharmacy)
+                .Include(t => t.JobApplication!)
+                    .ThenInclude(ja => ja.Pharmacist)
+                .FirstOrDefaultAsync(t => t.Id == timesheetId);
+
+            if (timesheet == null) return NotFound(new { message = "Timesheet nicht gefunden." });
             if (timesheet.Status == "Approved") return BadRequest(new { message = "Bereits freigegeben." });
 
             timesheet.Status = "Approved";
 
-            // Calculate total cost
-            decimal hours = (decimal)(timesheet.ActualEndTime - timesheet.ActualStartTime).TotalHours;
-            decimal totalAmount = (hours * timesheet.HourlyRate) + timesheet.TravelCosts + timesheet.AccommodationCosts;
+            var pharmacy = timesheet.JobApplication!.JobPost!.Pharmacy!;
+            var pharmacist = timesheet.JobApplication!.Pharmacist!;
 
-            // Generate Invoice
-            var invoice = new Invoice
+            decimal hours = (decimal)(timesheet.ActualEndTime - timesheet.ActualStartTime).TotalHours;
+            if (hours < 0) hours += 24m;
+            decimal laborCost = hours * timesheet.HourlyRate;
+            
+            decimal serviceTotalAmount = laborCost + timesheet.TravelCosts + timesheet.AccommodationCosts;
+            decimal commissionTotalAmount = laborCost * 0.15m;
+
+            var invoiceService = new InvoiceService();
+            var baseInvoicePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "invoices");
+            if (!Directory.Exists(baseInvoicePath)) Directory.CreateDirectory(baseInvoicePath);
+
+            var serviceInvoice = new Invoice
             {
                 InvoiceNumber = $"INV-{DateTime.UtcNow:yyyyMMdd}-{timesheetId}",
                 TimesheetId = timesheetId,
-                Type = "PharmacyInvoice",
-                TotalAmount = totalAmount,
+                Type = "PharmacistServiceInvoice",
+                TotalAmount = serviceTotalAmount,
                 Status = "Unpaid",
                 CreatedAt = DateTime.UtcNow
             };
+            _context.Invoices.Add(serviceInvoice);
+            await _context.SaveChangesAsync(); // Save to get ID
 
-            _context.Invoices.Add(invoice);
+            var servicePdfBytes = invoiceService.GeneratePharmacistServiceInvoice(
+                serviceInvoice.Id, timesheet, 
+                pharmacy.PharmacyName, $"{pharmacy.Street} {pharmacy.HouseNumber}, {pharmacy.PostalCode} {pharmacy.City}", 
+                pharmacy.ContactPerson, pharmacist);
+            
+            string servicePdfPath = Path.Combine(baseInvoicePath, $"{serviceInvoice.InvoiceNumber}.pdf");
+            await System.IO.File.WriteAllBytesAsync(servicePdfPath, servicePdfBytes);
+            serviceInvoice.PdfFilePath = $"/invoices/{serviceInvoice.InvoiceNumber}.pdf";
+
+            var commissionInvoice = new Invoice
+            {
+                InvoiceNumber = $"COM-{DateTime.UtcNow:yyyyMMdd}-{timesheetId}",
+                TimesheetId = timesheetId,
+                Type = "PlatformCommissionInvoice",
+                TotalAmount = commissionTotalAmount,
+                Status = "Unpaid",
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Invoices.Add(commissionInvoice);
+            await _context.SaveChangesAsync(); // Save to get ID
+
+            var commissionPdfBytes = invoiceService.GeneratePlatformCommissionInvoice(
+                commissionInvoice.Id, timesheet, 
+                pharmacy.PharmacyName, $"{pharmacy.Street} {pharmacy.HouseNumber}, {pharmacy.PostalCode} {pharmacy.City}", 
+                pharmacy.ContactPerson);
+            
+            string commissionPdfPath = Path.Combine(baseInvoicePath, $"{commissionInvoice.InvoiceNumber}.pdf");
+            await System.IO.File.WriteAllBytesAsync(commissionPdfPath, commissionPdfBytes);
+            commissionInvoice.PdfFilePath = $"/invoices/{commissionInvoice.InvoiceNumber}.pdf";
+
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Zeiten freigegeben und Rechnung erstellt." });
+            return Ok(new { message = "Zeiten freigegeben und AÜG-konforme Rechnungen erstellt." });
         }
 
         [HttpGet("{applicationId}/download")]

@@ -146,43 +146,22 @@ Der Einsatz erfolgt als freier Mitarbeiter (Honorarvertretung). Der Auftragnehme
                 _ = _emailService.SendEmailAsync(pharmacist.Email, pharmacistSubject, pharmacistMessage);
                 _ = _emailService.SendEmailAsync(pharmacy.Email, pharmacySubject, pharmacyMessage);
             }
-            else if (newStatus == "Invoiced" && newInvoice != null && timesheet != null && application.JobPost?.Pharmacy != null)
+            else if (newStatus == "Invoiced")
             {
-                try
+                // The actual invoice generation and PDF storage is handled exclusively by TimesheetController.Approve
+                // We just send a notification email here.
+                if (application.JobPost?.Pharmacy != null && application.Pharmacist != null)
                 {
-                    // Update InvoiceNumber now that we have the ID
-                    newInvoice.InvoiceNumber = $"INV-{DateTime.UtcNow:yyyy}-{newInvoice.Id:D6}";
-                    await _context.SaveChangesAsync(); // Update the generated number (safe since it's just an update)
-
                     var pharmacy = application.JobPost.Pharmacy;
-                    
-                    // Generate PDF dynamically in-memory
-                    var pdfBytes = _invoiceService.GeneratePharmacyInvoice(
-                        newInvoice.Id, 
-                        timesheet, 
-                        pharmacy.PharmacyName, 
-                        pharmacy.Street + " " + pharmacy.HouseNumber + ", " + pharmacy.PostalCode + " " + pharmacy.City, 
-                        pharmacy.ContactPerson ?? "Apothekenleitung"
-                    );
-
-                    string subject = $"Rechnung {newInvoice.InvoiceNumber} - ServiceApotheke";
+                    string subject = $"Rechnungen für Einsatz {application.JobPost.Title} verfügbar";
                     string message = $@"Hallo {pharmacy.ContactPerson ?? "Apothekenleitung"},
 
-anbei erhalten Sie die Rechnung {newInvoice.InvoiceNumber} für den kürzlich abgeschlossenen Einsatz.
-Der Gesamtbetrag lautet {newInvoice.TotalAmount:F2} €.
-
-Bitte überweisen Sie den Betrag innerhalb von 14 Tagen.
+Ihr Einsatz wurde abgerechnet. Die Service-Rechnung des Apothekers sowie die Provisionsrechnung der Plattform stehen in Ihrem Dashboard zum Download bereit.
 
 Mit freundlichen Grüßen,
 Ihr ServiceApotheke Team";
 
-                    // Dispatch SMTP email with attachment
-                    await _emailService.SendEmailAsync(pharmacy.Email, subject, message, pdfBytes, $"{newInvoice.InvoiceNumber}.pdf");
-                }
-                catch (Exception ex)
-                {
-                    // Catch exception and log to stdout, leaving the DB state consistent
-                    Console.WriteLine($"[EMAIL ERROR] Failed to send invoice email for Invoice ID {newInvoice.Id}. Details: {ex.Message}");
+                    _ = _emailService.SendEmailAsync(pharmacy.Email, subject, message);
                 }
             }
 

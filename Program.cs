@@ -380,6 +380,16 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine("Successfully created Notifications table.");
         } 
         catch (Exception ex) { Console.WriteLine(ex.Message); }
+
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                ALTER TABLE ""Timesheets"" ADD COLUMN IF NOT EXISTS ""DisputeReason"" text;
+                ALTER TABLE ""Timesheets"" ADD COLUMN IF NOT EXISTS ""DisputedAt"" timestamp with time zone;
+            ");
+            Console.WriteLine("Successfully added Dispute columns to Timesheets.");
+        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
     }
 }
 
