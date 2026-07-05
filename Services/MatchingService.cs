@@ -56,17 +56,14 @@ namespace ServiceApotheke.API.Services
 
                 matches.Add(new MatchResultDto
                 {
-                    JobPostId = job.Id,
-                    PharmacistId = pharmacist.Id,
+                    JobPost = job,
+                    Pharmacist = pharmacist,
                     DistanceKm = Math.Round(distance, 1),
-                    MatchScore = Math.Round(score, 1),
-                    JobTitle = job.Title,
-                    PharmacyName = job.Pharmacy.PharmacyName,
-                    PharmacistName = pharmacist.FullName
+                    Score = Math.Round(score / 100.0, 2)
                 });
             }
 
-            return matches.OrderByDescending(m => m.MatchScore);
+            return matches.OrderByDescending(m => m.Score);
         }
 
         public async Task<IEnumerable<MatchResultDto>> FindMatchesForJobPostAsync(int jobPostId)
@@ -109,17 +106,14 @@ namespace ServiceApotheke.API.Services
 
                 matches.Add(new MatchResultDto
                 {
-                    JobPostId = job.Id,
-                    PharmacistId = pharmacist.Id,
+                    JobPost = job,
+                    Pharmacist = pharmacist,
                     DistanceKm = Math.Round(distance, 1),
-                    MatchScore = Math.Round(score, 1),
-                    JobTitle = job.Title,
-                    PharmacyName = job.Pharmacy.PharmacyName,
-                    PharmacistName = pharmacist.FullName
+                    Score = Math.Round(score / 100.0, 2)
                 });
             }
 
-            return matches.OrderByDescending(m => m.MatchScore);
+            return matches.OrderByDescending(m => m.Score);
         }
 
         private double CalculateScore(Pharmacist pharmacist, JobPost job, double distance)

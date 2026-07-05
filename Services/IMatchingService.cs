@@ -1,17 +1,14 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
+using ServiceApotheke.API.Models;
 namespace ServiceApotheke.API.Services
 {
     public class MatchResultDto
     {
-        public int JobPostId { get; set; }
-        public int PharmacistId { get; set; }
-        public double MatchScore { get; set; }
+        public double Score { get; set; }
         public double DistanceKm { get; set; }
-        public string? JobTitle { get; set; }
-        public string? PharmacyName { get; set; }
-        public string? PharmacistName { get; set; }
+        public JobPost JobPost { get; set; }
+        public Pharmacist Pharmacist { get; set; }
     }
 
     public interface IMatchingService

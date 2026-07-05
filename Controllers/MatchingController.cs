@@ -18,6 +18,7 @@ namespace ServiceApotheke.API.Controllers
             _matchingService = matchingService;
         }
 
+        [HttpGet("{id}/matches")]
         [HttpGet("pharmacist/{id}/jobs")]
         public async Task<ActionResult<IEnumerable<MatchResultDto>>> GetMatchesForPharmacist(int id)
         {
