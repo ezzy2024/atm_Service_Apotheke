@@ -43,6 +43,26 @@ namespace ServiceApotheke.API.Controllers
             return Ok(jobs);
         }
 
+        [HttpGet("test-matching/{pharmacistId}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> TestMatching(int pharmacistId)
+        {
+            var pharmacist = await _context.Pharmacists.FindAsync(pharmacistId);
+            if (pharmacist == null) return NotFound("Pharmacist not found");
+            var job = await _context.JobPosts.Include(j => j.Pharmacy).OrderByDescending(j => j.Id).FirstOrDefaultAsync();
+            if (job == null) return NotFound("Job not found");
+
+            var result = new {
+                PharmacistInfo = new { pharmacist.Id, pharmacist.RadiusKm, pharmacist.MaxDistanceKm, pharmacist.HourlyRate, pharmacist.Qualification, pharmacist.Latitude, pharmacist.Longitude },
+                JobInfo = new { job.Id, job.Salary, job.Pharmacy.TargetHourlyRate, job.RequiredQualifications, job.Pharmacy.Latitude, job.Pharmacy.Longitude },
+                MatchingStats = new {
+                    BudgetMatch = (job.Pharmacy.TargetHourlyRate != null && job.Pharmacy.TargetHourlyRate >= pharmacist.HourlyRate) || (job.Salary != null && job.Salary >= pharmacist.HourlyRate),
+                    QualMatch = string.IsNullOrEmpty(job.RequiredQualifications) || job.RequiredQualifications == pharmacist.Qualification
+                }
+            };
+            return Ok(result);
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateJob([FromBody] JobPost job)
         {
