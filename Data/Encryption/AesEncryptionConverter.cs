@@ -27,6 +27,8 @@ namespace ServiceApotheke.API.Services.Workers
             {
                 _logger.LogInformation("Executing GDPR Data Retention Policy...");
 
+                // Cloud Run Build Trigger: The Address projection was already resolved locally in a prior commit.
+                // This empty push forces the GCP Cloud Build pipeline to invalidate its Docker cache and compile the current schema.
                 using (var scope = _serviceProvider.CreateScope())
                 {
                     var context = scope.ServiceProvider.GetRequiredService<DataContext>();
