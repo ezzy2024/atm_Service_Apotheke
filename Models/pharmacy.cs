@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using ServiceApotheke.API.Models.ATM;
+using ServiceApotheke.API.Models.PDL;
 
 namespace ServiceApotheke.API.Models
 {
@@ -39,6 +41,15 @@ namespace ServiceApotheke.API.Models
         // GDPR & B2B Compliance
         public DateTime? DataProcessingAgreementSignedAt { get; set; }
         public DateTime? GdprAnonymizedAt { get; set; }
+
+        [JsonIgnore]
+        public ICollection<TemperatureLog> TemperatureLogs { get; set; } = new List<TemperatureLog>();
+
+        [JsonIgnore]
+        public ICollection<Patient> Patients { get; set; } = new List<Patient>();
+
+        [JsonIgnore]
+        public ICollection<PdlDocument> PdlDocuments { get; set; } = new List<PdlDocument>();
 
         [JsonIgnore]
         public virtual ICollection<JobPost> JobPosts { get; set; } = new List<JobPost>();

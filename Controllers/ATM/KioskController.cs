@@ -81,7 +81,7 @@ namespace ServiceApotheke.API.Controllers.ATM
                 return Unauthorized();
             }
 
-            var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.UserId == pharmacyUserId);
+            var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.Id == pharmacyUserId);
             if (pharmacy == null)
             {
                 return Unauthorized();
@@ -123,7 +123,7 @@ namespace ServiceApotheke.API.Controllers.ATM
             var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!int.TryParse(userId, out int pharmacyUserId)) return Unauthorized();
 
-            var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.UserId == pharmacyUserId);
+            var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.Id == pharmacyUserId);
             if (pharmacy == null) return Unauthorized();
 
             var terminals = await _context.KioskTerminals
@@ -142,7 +142,7 @@ namespace ServiceApotheke.API.Controllers.ATM
             var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!int.TryParse(userId, out int pharmacyUserId)) return Unauthorized();
 
-            var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.UserId == pharmacyUserId);
+            var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.Id == pharmacyUserId);
             if (pharmacy == null) return Unauthorized();
 
             var terminal = await _context.KioskTerminals.FirstOrDefaultAsync(t => t.Id == id && t.PharmacyId == pharmacy.Id);
@@ -161,7 +161,7 @@ namespace ServiceApotheke.API.Controllers.ATM
             var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!int.TryParse(userId, out int pharmacyUserId)) return Unauthorized();
 
-            var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.UserId == pharmacyUserId);
+            var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.Id == pharmacyUserId);
             if (pharmacy == null) return Unauthorized();
 
             var ledger = await _context.AtmBillingRecords

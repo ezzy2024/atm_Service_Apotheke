@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System.Security.Claims;
 using ServiceApotheke.API.Models;
 using ServiceApotheke.API.Models.ATM;
+using ServiceApotheke.API.Models.PDL;
 
 namespace ServiceApotheke.API.Data
 {
@@ -127,6 +128,10 @@ namespace ServiceApotheke.API.Data
         public DbSet<AtmBillingRecord> AtmBillingRecords { get; set; }
         public DbSet<SessionTelemetry> SessionTelemetries { get; set; }
 
+        public DbSet<Patient> Patients { get; set; }
+        public DbSet<PdlService> PdlServices { get; set; }
+        public DbSet<PdlDocument> PdlDocuments { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             var encryptionKey = Environment.GetEnvironmentVariable("DB_ENCRYPTION_KEY") 
@@ -165,6 +170,33 @@ namespace ServiceApotheke.API.Data
                 .WithMany()
                 .HasForeignKey(s => s.PharmacyId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // PDL Module cascade configurations
+            modelBuilder.Entity<Patient>()
+                .HasOne(p => p.Pharmacy)
+                .WithMany(ph => ph.Patients)
+                .HasForeignKey(p => p.PharmacyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PdlService>()
+                .HasOne(s => s.Patient)
+                .WithMany(p => p.PdlServices)
+                .HasForeignKey(s => s.PatientId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PdlDocument>()
+                .HasOne(d => d.Pharmacy)
+                .WithMany(ph => ph.PdlDocuments)
+                .HasForeignKey(d => d.PharmacyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PdlDocument>()
+                .HasOne(d => d.Patient)
+                .WithMany(p => p.PdlDocuments)
+                .HasForeignKey(d => d.PatientId)
+                // We use restrict here because cascade from patient AND pharmacy causes multiple cascade paths in SQL Server/EF Core, 
+                // but since deleting pharmacy deletes patient, it's fine.
+                .OnDelete(DeleteBehavior.Restrict);
 
             if (Database.IsRelational())
             {

@@ -67,6 +67,8 @@ builder.Services.AddScoped<InvoiceService>();
 builder.Services.AddScoped<IMatchingService, MatchingService>();
 
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
+builder.Services.AddHttpClient<ServiceApotheke.API.Services.PDL.AiAnalysisService>();
+builder.Services.AddScoped<ServiceApotheke.API.Services.PDL.PdlReportEngine>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options => {
