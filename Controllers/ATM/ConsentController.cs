@@ -35,6 +35,11 @@ namespace ServiceApotheke.API.Controllers.ATM
                 return BadRequest(ModelState);
             }
 
+            if (!request.IsTelepharmacyConsentGranted)
+            {
+                return BadRequest(new { error = "Die Telepharmazie-Einwilligung ist zwingend erforderlich." });
+            }
+
             // Retrieve PharmacyId injected by the KioskAuthorizeFilter
             if (!HttpContext.Items.TryGetValue("KioskPharmacyId", out var pharmacyIdObj) || !(pharmacyIdObj is int pharmacyId))
             {
@@ -49,6 +54,8 @@ namespace ServiceApotheke.API.Controllers.ATM
                 HealthInsuranceNumber = request.HealthInsuranceNumber,
                 IkNumber = request.IkNumber,
                 SignatureBlob = request.SignatureBlob,
+                IsTelepharmacyConsentGranted = request.IsTelepharmacyConsentGranted,
+                IsWwsExportGranted = request.IsWwsExportGranted,
                 SignedDate = DateTime.UtcNow
             };
 
@@ -137,6 +144,8 @@ namespace ServiceApotheke.API.Controllers.ATM
 
                         col.Item().PaddingTop(30).Text("Rechtliche Hinweise & Disclaimer").Bold();
                         col.Item().PaddingTop(5).Text("Der Patient hat am Kiosk-Terminal aktiv bestätigt, dass das System keine medizinische Diagnose durchführt und keinen Arztbesuch in Notfällen ersetzt.");
+                        col.Item().PaddingTop(5).Text($"Einwilligung zur Telepharmazie (aTM): {(request.IsTelepharmacyConsentGranted ? "Ja" : "Nein")}");
+                        col.Item().PaddingTop(5).Text($"Einwilligung zum Apotheken-WWS Datenexport: {(request.IsWwsExportGranted ? "Ja" : "Nein")}");
 
                         col.Item().PaddingTop(30).Text("Signatur des Patienten").Bold();
                         
@@ -169,5 +178,7 @@ namespace ServiceApotheke.API.Controllers.ATM
         public string HealthInsuranceNumber { get; set; }
         public string IkNumber { get; set; }
         public byte[] SignatureBlob { get; set; }
+        public bool IsTelepharmacyConsentGranted { get; set; }
+        public bool IsWwsExportGranted { get; set; }
     }
 }
