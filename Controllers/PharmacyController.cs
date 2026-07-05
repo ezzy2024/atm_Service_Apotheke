@@ -21,17 +21,19 @@ namespace ServiceApotheke.API.Controllers
         private readonly DataContext _context;
         private readonly EmailService _emailService;
         private readonly IGeocodingService _geocodingService;
+        private readonly IWebHostEnvironment _env;
 
-        public PharmacyController(DataContext context, EmailService emailService, IGeocodingService geocodingService)
+        public PharmacyController(DataContext context, EmailService emailService, IGeocodingService geocodingService, IWebHostEnvironment env)
         {
             _context = context;
             _emailService = emailService;
             _geocodingService = geocodingService;
+            _env = env;
         }
 
         [AllowAnonymous]
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] PharmacyRegDto registration)
+        public async Task<IActionResult> Register([FromForm] PharmacyRegDto registration, IFormFile? documentFile)
         {
             if (await _context.Pharmacies.AnyAsync(p => p.Email == registration.Email))
                 return BadRequest(new { message = "Diese E-Mail-Adresse ist bereits registriert." });
@@ -78,6 +80,23 @@ namespace ServiceApotheke.API.Controllers
             try 
             {
                 await _context.SaveChangesAsync();
+
+                // Process Document File Upload after DB Save (to get ID)
+                if (documentFile != null)
+                {
+                    var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
+                    var uploadPath = Path.Combine(webRoot, "uploads", pharmacy.Id.ToString());
+
+                    if (!Directory.Exists(uploadPath))
+                        Directory.CreateDirectory(uploadPath);
+
+                    var docPath = Path.Combine(uploadPath, "license_" + documentFile.FileName);
+                    using (var stream = new FileStream(docPath, FileMode.Create))
+                    {
+                        await documentFile.CopyToAsync(stream);
+                    }
+                    // Optionally save path back to pharmacy if there is a field for it
+                }
             }
             catch (DbUpdateException ex)
             {
