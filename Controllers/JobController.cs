@@ -66,6 +66,14 @@ namespace ServiceApotheke.API.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateJob([FromBody] JobPost job)
         {
+            if (job.PharmacyId == 0)
+            {
+                var userIdClaim = User.FindFirst("id")?.Value;
+                if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out int pid))
+                {
+                    job.PharmacyId = pid;
+                }
+            }
             job.CreatedAt = DateTime.UtcNow;
             job.Status = "Active";
             

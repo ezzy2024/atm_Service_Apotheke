@@ -65,7 +65,7 @@ namespace ServiceApotheke.API.Controllers
             _context.Timesheets.Add(timesheet);
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Arbeitszeiten erfolgreich eingereicht." });
+            return Ok(new { message = "Arbeitszeiten erfolgreich eingereicht.", id = timesheet.Id });
         }
 
         [HttpPut("{timesheetId}/revise")]
@@ -183,6 +183,14 @@ namespace ServiceApotheke.API.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Zeiten freigegeben und AÜG-konforme Rechnungen erstellt." });
+        }
+
+        [HttpGet("{timesheetId}")]
+        public async Task<IActionResult> GetTimesheet(int timesheetId)
+        {
+            var timesheet = await _context.Timesheets.FindAsync(timesheetId);
+            if (timesheet == null) return NotFound();
+            return Ok(timesheet);
         }
 
         [HttpGet("{applicationId}/download")]

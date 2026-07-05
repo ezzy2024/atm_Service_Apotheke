@@ -19,7 +19,7 @@ namespace ServiceApotheke.API.Extensions
         {
             var connString = config.GetConnectionString("DefaultConnection");
             services.AddDbContext<DataContext>(options => {
-                if (string.IsNullOrEmpty(connString)) 
+                if (string.IsNullOrEmpty(connString) || !connString.Contains("Host=")) 
                     options.UseSqlite($"Data Source={Path.Combine(Path.GetTempPath(), "app.db")}");
                 else 
                     options.UseNpgsql(connString);

@@ -42,6 +42,12 @@ namespace ServiceApotheke.API.Models
         public DateTime? DataProcessingAgreementSignedAt { get; set; }
         public DateTime? GdprAnonymizedAt { get; set; }
 
+        // UTM Attribution (Marketing)
+        [MaxLength(200)] public string? UtmSource { get; set; }
+        [MaxLength(200)] public string? UtmMedium { get; set; }
+        [MaxLength(200)] public string? UtmCampaign { get; set; }
+        [MaxLength(200)] public string? UtmTerm { get; set; }
+
         [JsonIgnore]
         public ICollection<TemperatureLog> TemperatureLogs { get; set; } = new List<TemperatureLog>();
 

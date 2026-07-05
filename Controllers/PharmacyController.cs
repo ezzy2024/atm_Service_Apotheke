@@ -66,7 +66,11 @@ namespace ServiceApotheke.API.Controllers
                 FocusAreas = registration.Description,
                 StaffSupport = "",
                 TargetHourlyRate = null,
-                AccommodationProvided = ""
+                AccommodationProvided = "",
+                UtmSource = registration.UtmSource,
+                UtmMedium = registration.UtmMedium,
+                UtmCampaign = registration.UtmCampaign,
+                UtmTerm = registration.UtmTerm
             };
 
             _context.Pharmacies.Add(pharmacy);
@@ -122,7 +126,7 @@ namespace ServiceApotheke.API.Controllers
                 return Unauthorized(new { message = "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse." });
 
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes("vTccveQUGQTOL56EI0X/o3R1wHtjIjoed0NusZ9fKoY="); // Consider injecting this from configuration
+            var key = Encoding.UTF8.GetBytes("EIN_LANGER_GEHEIMER_SCHLUESSEL_MIT_MINDESTENS_32_ZEICHEN");
             
             var tokenDescriptor = new SecurityTokenDescriptor
             {
@@ -147,7 +151,8 @@ namespace ServiceApotheke.API.Controllers
 
             return Ok(new { 
                 id = pharmacy.Id.ToString(), 
-                pharmacyName = pharmacy.PharmacyName
+                pharmacyName = pharmacy.PharmacyName,
+                token = tokenString
             });
         }
 
@@ -257,5 +262,11 @@ namespace ServiceApotheke.API.Controllers
         public string LicenseNumber { get; set; } = string.Empty;
         public string SoftwareSystem { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
+        
+        // UTM Attribution (Marketing)
+        public string? UtmSource { get; set; }
+        public string? UtmMedium { get; set; }
+        public string? UtmCampaign { get; set; }
+        public string? UtmTerm { get; set; }
     }
 }

@@ -89,6 +89,7 @@ namespace ServiceApotheke.API.Controllers
             var p = await _context.Pharmacists.FindAsync(id);
             if (p == null) return NotFound();
             p.IsVerified = true;
+            p.IsEmailConfirmed = true;
             await _context.SaveChangesAsync();
             return Ok();
         }
@@ -99,6 +100,7 @@ namespace ServiceApotheke.API.Controllers
             var p = await _context.Pharmacies.FindAsync(id);
             if (p == null) return NotFound();
             p.IsVerified = true;
+            p.IsEmailConfirmed = true;
             await _context.SaveChangesAsync();
             return Ok();
         }
@@ -106,13 +108,12 @@ namespace ServiceApotheke.API.Controllers
         [HttpGet("finance")]
         public async Task<IActionResult> GetFinanceAggregation()
         {
-            var totalCommission = await _context.Invoices
+            var commissionInvoices = await _context.Invoices
                 .Where(i => i.Type == "PlatformCommissionInvoice")
-                .SumAsync(i => i.TotalAmount);
+                .ToListAsync();
 
-            var totalInvoicesCount = await _context.Invoices
-                .Where(i => i.Type == "PlatformCommissionInvoice")
-                .CountAsync();
+            var totalCommission = commissionInvoices.Sum(i => i.TotalAmount);
+            var totalInvoicesCount = commissionInvoices.Count;
 
             return Ok(new {
                 Revenue = totalCommission,

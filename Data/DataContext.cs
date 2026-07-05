@@ -144,7 +144,10 @@ namespace ServiceApotheke.API.Data
             modelBuilder.Entity<Pharmacist>().HasIndex(p => p.Email).IsUnique();
             modelBuilder.Entity<Pharmacy>().HasIndex(p => p.PharmacyName);
             
-            modelBuilder.Entity<JobPost>().UseXminAsConcurrencyToken();
+            if (Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                modelBuilder.Entity<JobPost>().UseXminAsConcurrencyToken();
+            }
 
             // ATM Module cascade configurations
             modelBuilder.Entity<KioskTerminal>()

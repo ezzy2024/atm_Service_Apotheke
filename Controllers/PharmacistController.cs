@@ -136,7 +136,7 @@ namespace ServiceApotheke.API.Controllers
             if (!user.IsEmailConfirmed)
                 return Unauthorized(new { message = "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse." });
 
-            var key = Encoding.UTF8.GetBytes("vTccveQUGQTOL56EI0X/o3R1wHtjIjoed0NusZ9fKoY="); 
+            var key = Encoding.UTF8.GetBytes("EIN_LANGER_GEHEIMER_SCHLUESSEL_MIT_MINDESTENS_32_ZEICHEN");
             var tokenDescriptor = new SecurityTokenDescriptor {
                 Subject = new ClaimsIdentity(new[] { new Claim("id", user.Id.ToString()), new Claim(ClaimTypes.Email, user.Email), new Claim(ClaimTypes.Role, "Pharmacist") }),
                 Expires = DateTime.UtcNow.AddHours(2),
@@ -150,7 +150,7 @@ namespace ServiceApotheke.API.Controllers
             var cookieOptions = new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.None, Expires = DateTime.UtcNow.AddHours(8) };
             // cookieOptions.Domain = ".serviceapotheke.tech";
             Response.Cookies.Append("sa_auth_v2", tokenString, cookieOptions);
-            return Ok(new { id = user.Id.ToString(), fullName = user.FullName });
+            return Ok(new { id = user.Id.ToString(), fullName = user.FullName, token = tokenString });
         }
 
         [HttpGet("{id}")]
