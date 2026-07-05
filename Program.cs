@@ -27,6 +27,7 @@ builder.Services.AddApiConfiguration();
 builder.Services.AddApplicationServices(builder.Configuration);
 builder.Services.AddIdentityServices(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "";
 builder.Services.AddDbContext<DataContext>((sp, options) => {
     if (connectionString.Contains("Host=")) {
