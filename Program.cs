@@ -21,6 +21,9 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.ClearProviders();
+builder.Logging.AddJsonConsole();
+
 builder.Environment.WebRootPath = Path.GetTempPath();
 
 builder.Services.AddApiConfiguration();
@@ -149,6 +152,7 @@ QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 app.UseRouting();
 app.UseCors("StrictCorsPolicy");
+app.UseMiddleware<CronAuthMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

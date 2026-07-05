@@ -120,5 +120,67 @@ namespace ServiceApotheke.API.Controllers
                 CommissionInvoicesCount = totalInvoicesCount
             });
         }
+
+        [HttpGet("metrics/pac")]
+        public async Task<IActionResult> GetPacMetrics()
+        {
+            // PAC Calculation: aggregate commission revenue grouped by UtmTerm
+            // Client-side evaluation due to complex nested includes in SQLite/EFCore
+            var query = await _context.Invoices
+                .Where(i => i.Type == "PlatformCommissionInvoice")
+                .Include(i => i.Timesheet)
+                    .ThenInclude(t => t.JobApplication)
+                        .ThenInclude(ja => ja.JobPost)
+                            .ThenInclude(jp => jp.Pharmacy)
+                .ToListAsync();
+
+            var pacData = query
+                .Where(i => i.Timesheet?.JobApplication?.JobPost?.Pharmacy != null)
+                .GroupBy(i => i.Timesheet.JobApplication.JobPost.Pharmacy.UtmTerm ?? "Organic")
+                .Select(g => new {
+                    UtmTerm = g.Key,
+                    TotalCommissionRevenue = g.Sum(i => i.TotalAmount),
+                    InvoicesCount = g.Count(),
+                    PharmaciesAcquired = g.Select(i => i.Timesheet.JobApplication.JobPost.Pharmacy.Id).Distinct().Count()
+                })
+                .ToList();
+
+            return Ok(pacData);
+        }
+
+        [AllowAnonymous]
+        [HttpPost("cron/stale-timesheets")]
+        public async Task<IActionResult> CheckStaleTimesheets()
+        {
+            var threshold = DateTime.UtcNow.AddDays(-7);
+            var staleTimesheets = await _context.Timesheets
+                .Where(t => t.Status == "Disputed" && t.DisputedAt != null && t.DisputedAt < threshold)
+                .ToListAsync();
+
+            foreach (var ts in staleTimesheets)
+            {
+                // In production, this would dispatch an email or PagerDuty alert via an injected service
+                Console.WriteLine($"[ALERT] Timesheet {ts.Id} has been Disputed since {ts.DisputedAt}. Escalation required.");
+            }
+
+            return Ok(new { message = $"Processed {staleTimesheets.Count} stale timesheets." });
+        }
+
+        [AllowAnonymous]
+        [HttpPost("cron/kiosk-telemetry")]
+        public async Task<IActionResult> CheckKioskTelemetry()
+        {
+            // Here we check for kiosks that are inactive or have revoked status
+            var inactiveTerminals = await _context.KioskTerminals
+                .Where(k => k.Status != "active")
+                .ToListAsync();
+
+            foreach (var terminal in inactiveTerminals)
+            {
+                Console.WriteLine($"[ALERT] Kiosk Terminal {terminal.Id} ({terminal.Name}) at Pharmacy {terminal.PharmacyId} is in status '{terminal.Status}'.");
+            }
+
+            return Ok(new { message = $"Checked kiosk telemetry. Found {inactiveTerminals.Count} non-active terminals." });
+        }
     }
 }
