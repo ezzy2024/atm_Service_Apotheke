@@ -115,6 +115,72 @@ namespace ServiceApotheke.API.Controllers.ATM
 
             return Ok(new { success = true, terminalId = terminal.Id });
         }
+
+        [HttpGet("terminals")]
+        [Authorize(Roles = "Pharmacy")]
+        public async Task<IActionResult> GetTerminals()
+        {
+            var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userId, out int pharmacyUserId)) return Unauthorized();
+
+            var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.UserId == pharmacyUserId);
+            if (pharmacy == null) return Unauthorized();
+
+            var terminals = await _context.KioskTerminals
+                .Where(t => t.PharmacyId == pharmacy.Id && t.Status == "active")
+                .OrderByDescending(t => t.CreatedAt)
+                .Select(t => new { t.Id, t.Name, t.CreatedAt })
+                .ToListAsync();
+
+            return Ok(terminals);
+        }
+
+        [HttpDelete("terminals/{id}")]
+        [Authorize(Roles = "Pharmacy")]
+        public async Task<IActionResult> RevokeTerminal(int id)
+        {
+            var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userId, out int pharmacyUserId)) return Unauthorized();
+
+            var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.UserId == pharmacyUserId);
+            if (pharmacy == null) return Unauthorized();
+
+            var terminal = await _context.KioskTerminals.FirstOrDefaultAsync(t => t.Id == id && t.PharmacyId == pharmacy.Id);
+            if (terminal == null) return NotFound();
+
+            terminal.Status = "revoked";
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true });
+        }
+
+        [HttpGet("ledger")]
+        [Authorize(Roles = "Pharmacy")]
+        public async Task<IActionResult> GetLedger()
+        {
+            var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userId, out int pharmacyUserId)) return Unauthorized();
+
+            var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.UserId == pharmacyUserId);
+            if (pharmacy == null) return Unauthorized();
+
+            var ledger = await _context.AtmBillingRecords
+                .Include(b => b.ConsentAgreement)
+                .Where(b => b.PharmacyId == pharmacy.Id)
+                .OrderByDescending(b => b.DateOfService)
+                .Select(b => new {
+                    b.Id,
+                    b.ServiceType,
+                    b.Amount,
+                    b.DateOfService,
+                    b.ReportPath,
+                    PatientName = b.ConsentAgreement.PatientName,
+                    KVNR = b.ConsentAgreement.HealthInsuranceNumber
+                })
+                .ToListAsync();
+
+            return Ok(ledger);
+        }
     }
 
     public class KioskPairingState
