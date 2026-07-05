@@ -398,6 +398,28 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine("Successfully added Dispute columns to Timesheets.");
         }
         catch (Exception ex) { Console.WriteLine(ex.Message); }
+
+        try 
+        {
+            db.Database.ExecuteSqlRaw(@"
+                ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""UtmSource"" text;
+                ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""UtmMedium"" text;
+                ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""UtmCampaign"" text;
+                ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""UtmTerm"" text;
+
+                ALTER TABLE ""ConsentAgreement"" ADD COLUMN IF NOT EXISTS ""IsTelepharmacyConsentGranted"" boolean DEFAULT false;
+                ALTER TABLE ""ConsentAgreement"" ADD COLUMN IF NOT EXISTS ""IsWwsExportGranted"" boolean DEFAULT false;
+            ");
+            Console.WriteLine("Successfully added UTM and Consent columns.");
+        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
+
+        try 
+        {
+            await db.Database.MigrateAsync();
+            Console.WriteLine("Successfully applied pending EF Core migrations.");
+        }
+        catch (Exception ex) { Console.WriteLine($"EF Migration error: {ex.Message}"); }
     }
 }
 
