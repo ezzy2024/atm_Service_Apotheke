@@ -147,6 +147,42 @@ namespace ServiceApotheke.API.Controllers
 
             return Ok(pacData);
         }
+        [HttpGet("metrics/tta")]
+        public async Task<IActionResult> GetTimeToActivation()
+        {
+            var pharmacies = await _context.Pharmacies
+                .Include(p => p.JobPosts)
+                .Include(p => p.PdlDocuments)
+                .ToListAsync();
+
+            var results = pharmacies.Select(p => {
+                var firstJobPost = p.JobPosts.OrderBy(jp => jp.CreatedAt).FirstOrDefault()?.CreatedAt;
+                var firstPdl = p.PdlDocuments.OrderBy(pd => pd.CreatedAt).FirstOrDefault()?.CreatedAt;
+                
+                DateTime? firstActivity = null;
+                if (firstJobPost.HasValue && firstPdl.HasValue)
+                    firstActivity = firstJobPost.Value < firstPdl.Value ? firstJobPost.Value : firstPdl.Value;
+                else if (firstJobPost.HasValue)
+                    firstActivity = firstJobPost.Value;
+                else if (firstPdl.HasValue)
+                    firstActivity = firstPdl.Value;
+
+                var timeDelta = firstActivity.HasValue ? firstActivity.Value - p.CreatedAt : DateTime.UtcNow - p.CreatedAt;
+                
+                return new {
+                    PharmacyId = p.Id,
+                    PharmacyName = p.PharmacyName,
+                    UtmTerm = p.UtmTerm,
+                    PostalCode = p.PostalCode,
+                    CreatedAt = p.CreatedAt,
+                    FirstActivityAt = firstActivity,
+                    TimeDeltaHours = timeDelta.TotalHours,
+                    RequiresOutbound = !firstActivity.HasValue && timeDelta.TotalHours > 48
+                };
+            }).ToList();
+
+            return Ok(results);
+        }
 
         [AllowAnonymous]
         [HttpPost("cron/stale-timesheets")]

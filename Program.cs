@@ -101,7 +101,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddDataProtection()
     .SetApplicationName("ServiceApothekeAPI")
     .PersistKeysToGoogleCloudStorage("serviceapotheke-dp-keys", "keys.xml")
-    .ProtectKeysWithGoogleKms("projects/830781040278/locations/europe-west3/keyRings/sa-keyring/cryptoKeys/dp-key");
+    .ProtectKeysWithGoogleKms("projects/gen-lang-client-0493260544/locations/europe-west3/keyRings/sa-keyring/cryptoKeys/dp-key");
 
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.DataRetentionWorker>();
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.GeocodingBackfillWorker>();
@@ -160,6 +160,8 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<DataContext>();
+await Task.Delay(3000); // Wait for Cloud SQL proxy
+
     db.Database.EnsureCreated();
     if (db.Database.IsRelational())
     {
@@ -373,6 +375,13 @@ using (var scope = app.Services.CreateScope())
         
         try 
         {
+            db.Database.ExecuteSqlRaw(@"ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT NOW();");
+            Console.WriteLine("Successfully added CreatedAt column to Pharmacies.");
+        } 
+        catch (Exception ex) { Console.WriteLine($"CreatedAt column addition failed: {ex.Message}"); }
+        
+        try 
+        {
             db.Database.ExecuteSqlRaw(@"
                 CREATE TABLE IF NOT EXISTS ""Notifications"" (
                     ""Id"" serial PRIMARY KEY,
@@ -406,11 +415,27 @@ using (var scope = app.Services.CreateScope())
                 ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""UtmMedium"" text;
                 ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""UtmCampaign"" text;
                 ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""UtmTerm"" text;
+            ");
+            Console.WriteLine("Successfully added UTM columns.");
+        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
 
+        try 
+        {
+            db.Database.ExecuteSqlRaw(@"
                 ALTER TABLE ""ConsentAgreement"" ADD COLUMN IF NOT EXISTS ""IsTelepharmacyConsentGranted"" boolean DEFAULT false;
                 ALTER TABLE ""ConsentAgreement"" ADD COLUMN IF NOT EXISTS ""IsWwsExportGranted"" boolean DEFAULT false;
             ");
-            Console.WriteLine("Successfully added UTM and Consent columns.");
+            Console.WriteLine("Successfully added Consent columns.");
+        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
+
+        try 
+        {
+            db.Database.ExecuteSqlRaw(@"
+                ALTER TABLE ""Invoices"" ADD COLUMN IF NOT EXISTS ""PaidAt"" timestamp with time zone;
+            ");
+            Console.WriteLine("Successfully added PaidAt column to Invoices.");
         }
         catch (Exception ex) { Console.WriteLine(ex.Message); }
 

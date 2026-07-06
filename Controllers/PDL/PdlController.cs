@@ -50,11 +50,14 @@ namespace ServiceApotheke.API.Controllers.PDL
             await file.CopyToAsync(stream);
             stream.Position = 0;
 
-            var rows = stream.Query().ToList();
+            var rows = stream.Query(useHeaderRow: true).ToList();
             
             var groupedPatients = rows.GroupBy(r => {
                 var dict = r as IDictionary<string, object>;
-                if (dict != null && dict.ContainsKey("KdnNr")) return dict["KdnNr"]?.ToString() ?? "";
+                if (dict != null) {
+                    if (dict.ContainsKey("KdnNr")) return dict["KdnNr"]?.ToString() ?? "";
+                    if (dict.ContainsKey("PatientId_Hash")) return dict["PatientId_Hash"]?.ToString() ?? "";
+                }
                 return "";
             }).Where(g => !string.IsNullOrEmpty(g.Key));
 
@@ -83,9 +86,12 @@ namespace ServiceApotheke.API.Controllers.PDL
                 foreach (var r in group)
                 {
                     var d = r as IDictionary<string, object>;
-                    if (d != null && d.ContainsKey("Medikament") && d["Medikament"] != null)
+                    if (d != null)
                     {
-                        var medName = d["Medikament"].ToString();
+                        var medName = "";
+                        if (d.ContainsKey("Medikament") && d["Medikament"] != null) medName = d["Medikament"].ToString();
+                        else if (d.ContainsKey("MedicationName") && d["MedicationName"] != null) medName = d["MedicationName"].ToString();
+
                         if (!string.IsNullOrEmpty(medName)) medications.Add(medName);
                     }
                 }

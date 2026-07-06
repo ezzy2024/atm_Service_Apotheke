@@ -58,7 +58,7 @@ namespace ServiceApotheke.API.Controllers
                 Longitude = coords?.Longitude,
                 LicenseNumber = registration.LicenseNumber,
                 EmailConfirmationToken = token,
-                IsEmailConfirmed = false,
+                IsEmailConfirmed = true,
                 
                 // CRITICAL FIX: Explicitly set required default values to prevent constraint violations
                 IsVerified = false,
@@ -116,7 +116,35 @@ namespace ServiceApotheke.API.Controllers
                 Console.WriteLine($"[EMAIL ERROR] {ex.Message}");
             }
 
-            return Ok(new { message = "Registrierung erfolgreich." });
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes("EIN_LANGER_GEHEIMER_SCHLUESSEL_MIT_MINDESTENS_32_ZEICHEN");
+            
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new[]
+                {
+                    new Claim("id", pharmacy.Id.ToString()),
+                    new Claim(ClaimTypes.Email, pharmacy.Email),
+                    new Claim(ClaimTypes.Role, "Pharmacy")
+                }),
+                Expires = DateTime.UtcNow.AddHours(2),
+                Issuer = "ServiceApotheke.API",
+                Audience = "ServiceApotheke.Clients",
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var jwtToken = tokenHandler.CreateToken(tokenDescriptor);
+            var tokenString = tokenHandler.WriteToken(jwtToken);
+            
+            var cookieOptions = new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.None, Expires = DateTime.UtcNow.AddHours(8) };
+            Response.Cookies.Append("sa_auth_v2", tokenString, cookieOptions);
+
+            return Ok(new { 
+                message = "Registrierung erfolgreich.",
+                id = pharmacy.Id.ToString(), 
+                pharmacyName = pharmacy.PharmacyName,
+                token = tokenString
+            });
         }
 
         [AllowAnonymous]

@@ -8,6 +8,7 @@ namespace ServiceApotheke.API.Models
     public class Pharmacy
     {
         public int Id { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         [Required, MaxLength(150)]
         public string PharmacyName { get; set; } = string.Empty;
         [Required] public string Email { get; set; } = string.Empty;

@@ -1,6 +1,9 @@
+.dockerignore
 .gcloudignore
 .git
 .gitignore
 bin/
 obj/
-.qodo/
+node_modules/
+google-cloud-sdk/
+google-cloud-cli-linux-x86_64.tar.gz
