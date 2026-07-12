@@ -109,8 +109,9 @@ builder.Services.AddDataProtection()
     .PersistKeysToGoogleCloudStorage("serviceapotheke-dp-keys", "keys.xml")
     .ProtectKeysWithGoogleKms("projects/gen-lang-client-0493260544/locations/europe-west3/keyRings/sa-keyring/cryptoKeys/dp-key");
 
-builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.DataRetentionWorker>();
-builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.GeocodingBackfillWorker>();
+// Temporarily disabled to prevent fatal host termination during schema desynchronization
+// builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.DataRetentionWorker>();
+// builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.GeocodingBackfillWorker>();
 builder.Services.AddScoped<IRedMedicalService, RedMedicalService>();
 
 builder.Services.AddRateLimiter(options =>
