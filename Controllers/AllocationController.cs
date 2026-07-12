@@ -15,6 +15,11 @@ namespace ServiceApotheke.API.Controllers
         public string NewStatus { get; set; } = string.Empty;
     }
 
+    public class ApplyDto
+    {
+        public int PharmacistId { get; set; }
+    }
+
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
@@ -29,6 +34,29 @@ namespace ServiceApotheke.API.Controllers
             _context = context;
             _emailService = emailService;
             _invoiceService = invoiceService;
+        }
+
+        [HttpPost("{jobId}/apply")]
+        public async Task<IActionResult> Apply(int jobId, [FromBody] ApplyDto dto)
+        {
+            // Check if already applied
+            var existing = await _context.JobApplications
+                .FirstOrDefaultAsync(a => a.JobPostId == jobId && a.PharmacistId == dto.PharmacistId);
+            
+            if (existing != null)
+                return Conflict(new { message = "Already applied to this shift." });
+
+            var application = new JobApplication
+            {
+                JobPostId = jobId,
+                PharmacistId = dto.PharmacistId,
+                Status = "Pending",
+                AppliedAt = DateTime.UtcNow
+            };
+            
+            _context.JobApplications.Add(application);
+            await _context.SaveChangesAsync();
+            return Ok(application);
         }
 
         [HttpPut("shift/{applicationId}/status")]

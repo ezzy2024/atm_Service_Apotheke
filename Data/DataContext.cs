@@ -132,6 +132,9 @@ namespace ServiceApotheke.API.Data
         public DbSet<PdlService> PdlServices { get; set; }
         public DbSet<PdlDocument> PdlDocuments { get; set; }
 
+        public DbSet<PharmacyEmployee> PharmacyEmployees { get; set; }
+        public DbSet<InternalShift> InternalShifts { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             var encryptionKey = Environment.GetEnvironmentVariable("DB_ENCRYPTION_KEY") 

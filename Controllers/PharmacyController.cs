@@ -1,4 +1,5 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -33,6 +34,8 @@ namespace ServiceApotheke.API.Controllers
 
         [AllowAnonymous]
         [HttpPost("register")]
+        [EnableRateLimiting("AuthLimiter")]
+        [ValidateAntiForgeryToken]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Register([FromForm] PharmacyRegDto registration, IFormFile? documentFile)
         {
@@ -163,6 +166,8 @@ namespace ServiceApotheke.API.Controllers
 
         [AllowAnonymous]
         [HttpPost("login")]
+        [EnableRateLimiting("AuthLimiter")]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login([FromBody] LoginDto login)
         {
             var pharmacy = await _context.Pharmacies.SingleOrDefaultAsync(p => p.Email == login.Email);

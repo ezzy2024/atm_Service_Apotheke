@@ -1,4 +1,5 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -34,6 +35,8 @@ namespace ServiceApotheke.API.Controllers
 
         [AllowAnonymous]
         [HttpPost("register")]
+        [EnableRateLimiting("AuthLimiter")]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register([FromBody] PharmacistRegDto registration)
         {
             if (await _context.Pharmacists.AnyAsync(p => p.Email == registration.Email))
@@ -126,7 +129,9 @@ namespace ServiceApotheke.API.Controllers
 
         [AllowAnonymous]
         [HttpPost("login")]
-        [EnableRateLimiting("LoginPolicy")]
+        [EnableRateLimiting("AuthLimiter")]
+        [ValidateAntiForgeryToken]
+        
         public async Task<IActionResult> Login([FromBody] LoginDto login)
         {
             var user = await _context.Pharmacists.SingleOrDefaultAsync(p => p.Email == login.Email);
@@ -285,6 +290,7 @@ namespace ServiceApotheke.API.Controllers
             {
                 user.ApprobationDocumentPath = await SaveFileAsync(approbation, "approbations");
                 user.HasApprobation = true;
+                user.IsVerified = false;
             }
             if (cv != null)
             {
