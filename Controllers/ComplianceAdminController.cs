@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using ServiceApotheke.API.Data;
 using ServiceApotheke.API.Services;
 
@@ -68,6 +69,49 @@ namespace ServiceApotheke.API.Controllers
             await _dbContext.SaveChangesAsync(ct);
 
             return Ok(new { message = "Approbationsurkunde verified successfully. Matching engine unlocked for this Pharmacist." });
+        }
+
+        [HttpPost("sync-migrations")]
+        [Authorize] // Assume strict role in prod
+        public async Task<IActionResult> SyncMigrations(CancellationToken ct)
+        {
+            var migrationIds = new[]
+            {
+                "20260620112636_InitialCleanState",
+                "20260623074307_SeedInitialTimesheet",
+                "20260629142041_AddJobDescriptionColumn",
+                "20260701140229_AddInvoicePaidAt",
+                "20260701142421_AddTemperatureLog",
+                "20260701170308_AddAuditLogging",
+                "20260702201315_AddressAndNotifications",
+                "20260704123412_AddPharmacyLicenseDocument",
+                "20260704155831_AddFeedbackModels",
+                "20260704182034_SplitPharmacistAddress",
+                "20260705095355_AddUnifiedMegaSchema_ATM",
+                "20260705101841_AddUnifiedMegaSchema_PDL",
+                "20260705120900_AddPatientMedicationCount",
+                "20260705130455_AddUtmTrackingToPharmacy",
+                "20260705180047_AddKioskConsentFlags",
+                "20260706090839_AddPharmacyCreatedAt",
+                "20260712132520_AddDienstplan"
+            };
+
+            int totalAffectedRows = 0;
+
+            // Ensure tracking table exists
+            await _dbContext.Database.ExecuteSqlRawAsync(
+                "CREATE TABLE IF NOT EXISTS \"__EFMigrationsHistory\" (" +
+                "\"MigrationId\" character varying(150) NOT NULL, " +
+                "\"ProductVersion\" character varying(32) NOT NULL, " +
+                "CONSTRAINT \"PK___EFMigrationsHistory\" PRIMARY KEY (\"MigrationId\"));", ct);
+
+            foreach (var migrationId in migrationIds)
+            {
+                var sql = "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ({0}, '8.0.0') ON CONFLICT DO NOTHING;";
+                totalAffectedRows += await _dbContext.Database.ExecuteSqlRawAsync(sql, new object[] { migrationId }, ct);
+            }
+
+            return Ok(new { message = "Migration synchronization executed.", affectedRows = totalAffectedRows });
         }
     }
 }
