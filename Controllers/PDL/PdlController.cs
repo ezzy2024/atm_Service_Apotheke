@@ -46,91 +46,102 @@ namespace ServiceApotheke.API.Controllers.PDL
             var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.Id == pharmacyUserId);
             if (pharmacy == null) return Unauthorized();
 
-            using var stream = new MemoryStream();
-            await file.CopyToAsync(stream);
-            stream.Position = 0;
-
-            var rows = stream.Query(useHeaderRow: true).ToList();
-            
-            var groupedPatients = rows.GroupBy(r => {
-                var dict = r as IDictionary<string, object>;
-                if (dict != null) {
-                    if (dict.ContainsKey("KdnNr")) return dict["KdnNr"]?.ToString() ?? "";
-                    if (dict.ContainsKey("PatientId_Hash")) return dict["PatientId_Hash"]?.ToString() ?? "";
-                }
-                return "";
-            }).Where(g => !string.IsNullOrEmpty(g.Key));
-
-            int processedCount = 0;
-            int eligibleCount = 0;
-
-            foreach (var group in groupedPatients)
+            try
             {
-                var kdnNr = group.Key;
-                var firstRow = group.First() as IDictionary<string, object>;
-                if (firstRow == null) continue;
+                var ext = Path.GetExtension(file.FileName).ToLower();
+                var excelType = ext == ".csv" ? ExcelType.CSV : ExcelType.XLSX;
 
-                int birthYear = 1960;
-                if (firstRow.ContainsKey("Geburtsjahr") && firstRow["Geburtsjahr"] != null)
-                {
-                    if (int.TryParse(firstRow["Geburtsjahr"].ToString(), out int y)) birthYear = y;
-                }
-                
-                string gender = "unbekannt";
-                if (firstRow.ContainsKey("Geschlecht") && firstRow["Geschlecht"] != null)
-                {
-                    gender = firstRow["Geschlecht"].ToString() ?? "unbekannt";
-                }
-                
-                var medications = new List<string>();
-                foreach (var r in group)
-                {
-                    var d = r as IDictionary<string, object>;
-                    if (d != null)
-                    {
-                        var medName = "";
-                        if (d.ContainsKey("Medikament") && d["Medikament"] != null) medName = d["Medikament"].ToString();
-                        else if (d.ContainsKey("MedicationName") && d["MedicationName"] != null) medName = d["MedicationName"].ToString();
+                using var stream = new MemoryStream();
+                await file.CopyToAsync(stream);
+                stream.Position = 0;
 
-                        if (!string.IsNullOrEmpty(medName)) medications.Add(medName);
+                var rows = stream.Query(useHeaderRow: true, excelType: excelType).ToList();
+                
+                var groupedPatients = rows.GroupBy(r => {
+                    var dict = r as IDictionary<string, object>;
+                    if (dict != null) {
+                        if (dict.ContainsKey("KdnNr")) return dict["KdnNr"]?.ToString() ?? "";
+                        if (dict.ContainsKey("PatientId_Hash")) return dict["PatientId_Hash"]?.ToString() ?? "";
                     }
-                }
+                    return "";
+                }).Where(g => !string.IsNullOrEmpty(g.Key));
 
-                bool isEligible = medications.Count >= 5;
-                if (isEligible) eligibleCount++;
+                int processedCount = 0;
+                int eligibleCount = 0;
 
-                var patient = await _context.Patients.FirstOrDefaultAsync(p => p.PharmacyId == pharmacy.Id && p.KdnNr == kdnNr);
-                if (patient == null)
+                foreach (var group in groupedPatients)
                 {
-                    patient = new Patient
+                    var kdnNr = group.Key;
+                    var firstRow = group.First() as IDictionary<string, object>;
+                    if (firstRow == null) continue;
+
+                    int birthYear = 1960;
+                    if (firstRow.ContainsKey("Geburtsjahr") && firstRow["Geburtsjahr"] != null)
                     {
-                        PharmacyId = pharmacy.Id,
-                        KdnNr = kdnNr,
-                        Geburt = birthYear.ToString(),
-                        Gender = gender,
-                        Name = "Anonymisiert",
-                        Vorname = "Anonymisiert",
-                        MedicationCount = medications.Count,
-                        IsEligibleForAmts = isEligible,
-                        MedicationsJson = JsonSerializer.Serialize(medications)
-                    };
-                    _context.Patients.Add(patient);
-                }
-                else
-                {
-                    patient.Geburt = birthYear.ToString();
-                    patient.Gender = gender;
-                    patient.MedicationCount = medications.Count;
-                    patient.IsEligibleForAmts = isEligible;
-                    patient.MedicationsJson = JsonSerializer.Serialize(medications);
-                    _context.Patients.Update(patient);
-                }
-                
-                processedCount++;
-            }
+                        if (int.TryParse(firstRow["Geburtsjahr"].ToString(), out int y)) birthYear = y;
+                    }
+                    
+                    string gender = "unbekannt";
+                    if (firstRow.ContainsKey("Geschlecht") && firstRow["Geschlecht"] != null)
+                    {
+                        gender = firstRow["Geschlecht"].ToString() ?? "unbekannt";
+                    }
+                    
+                    var medications = new List<string>();
+                    foreach (var r in group)
+                    {
+                        var d = r as IDictionary<string, object>;
+                        if (d != null)
+                        {
+                            var medName = "";
+                            if (d.ContainsKey("Medikament") && d["Medikament"] != null) medName = d["Medikament"].ToString();
+                            else if (d.ContainsKey("MedicationName") && d["MedicationName"] != null) medName = d["MedicationName"].ToString();
 
-            await _context.SaveChangesAsync();
-            return Ok(new { success = true, processed = processedCount, newlyEligible = eligibleCount });
+                            if (!string.IsNullOrEmpty(medName)) medications.Add(medName);
+                        }
+                    }
+
+                    bool isEligible = medications.Count >= 5;
+                    if (isEligible) eligibleCount++;
+
+                    var patient = await _context.Patients.FirstOrDefaultAsync(p => p.PharmacyId == pharmacy.Id && p.KdnNr == kdnNr);
+                    if (patient == null)
+                    {
+                        patient = new Patient
+                        {
+                            PharmacyId = pharmacy.Id,
+                            KdnNr = kdnNr,
+                            Geburt = birthYear.ToString(),
+                            Gender = gender,
+                            Name = "Anonymisiert",
+                            Vorname = "Anonymisiert",
+                            MedicationCount = medications.Count,
+                            IsEligibleForAmts = isEligible,
+                            MedicationsJson = JsonSerializer.Serialize(medications)
+                        };
+                        _context.Patients.Add(patient);
+                    }
+                    else
+                    {
+                        patient.Geburt = birthYear.ToString();
+                        patient.Gender = gender;
+                        patient.MedicationCount = medications.Count;
+                        patient.IsEligibleForAmts = isEligible;
+                        patient.MedicationsJson = JsonSerializer.Serialize(medications);
+                        _context.Patients.Update(patient);
+                    }
+                    
+                    processedCount++;
+                }
+
+                await _context.SaveChangesAsync();
+                return Ok(new { success = true, processed = processedCount, newlyEligible = eligibleCount });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PdlController Ingest Error] {ex.Message}");
+                return BadRequest(new { error = "Dateiformat oder Inhalt ungültig. Bitte stellen Sie sicher, dass Sie eine gültige .xlsx oder .csv Datei hochladen." });
+            }
         }
 
         [HttpGet("patients")]
