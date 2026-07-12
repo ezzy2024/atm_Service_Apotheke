@@ -77,9 +77,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options => {
         options.TokenValidationParameters = new TokenValidationParameters {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:Secret"] ?? builder.Configuration["JWT_SECRET"] ?? throw new InvalidOperationException("Missing JWT Secret"))),
-            ValidateIssuer = false,
-            ValidateAudience = false,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("EIN_LANGER_GEHEIMER_SCHLUESSEL_MIT_MINDESTENS_32_ZEICHEN")),
+            ValidateIssuer = true,
+            ValidateAudience = true,
             ValidIssuer = "ServiceApotheke.API",
             ValidAudience = "ServiceApotheke.Clients"
         };
@@ -87,7 +87,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             OnMessageReceived = context =>
             {
-                // Only use cookies if the Authorization header is missing
                 if (!context.Request.Headers.ContainsKey("Authorization"))
                 {
                     if (context.Request.Cookies.ContainsKey("sa_auth_v2"))
