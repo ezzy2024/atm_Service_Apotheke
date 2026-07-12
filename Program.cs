@@ -135,6 +135,21 @@ builder.Services.AddAntiforgery(options =>
 
 var app = builder.Build();
 
+// Apply EF Core Migrations Automatically on Startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ServiceApotheke.API.Data.DataContext>();
+    try
+    {
+        Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.Migrate(db.Database);
+        Console.WriteLine("[EF Core] Production database migrations applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[EF Core] Fatal error applying migrations: {ex.Message}");
+    }
+}
+
 app.Use(async (context, next) =>
 {
     if (context.Request.Method == HttpMethods.Options)
