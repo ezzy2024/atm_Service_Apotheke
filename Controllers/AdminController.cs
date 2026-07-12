@@ -42,6 +42,8 @@ namespace ServiceApotheke.API.Controllers
                         new Claim(ClaimTypes.Role, "admin")
                     }),
                     Expires = DateTime.UtcNow.AddHours(12),
+                    Issuer = "ServiceApotheke.API",
+                    Audience = "ServiceApotheke.Clients",
                     SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
                 };
                 var token = tokenHandler.CreateToken(tokenDescriptor);
