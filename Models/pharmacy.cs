@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using ServiceApotheke.API.Models.ATM;
 using ServiceApotheke.API.Models.PDL;
@@ -45,6 +45,9 @@ namespace ServiceApotheke.API.Models
         // GDPR & B2B Compliance
         public DateTime? DataProcessingAgreementSignedAt { get; set; }
         public DateTime? GdprAnonymizedAt { get; set; }
+        public string? AugContractDocumentPath { get; set; }
+        public bool IsTelepharmacyConsentGranted { get; set; } = false;
+        public string? TelepharmacyConsentDocumentPath { get; set; }
 
         // UTM Attribution (Marketing)
         [MaxLength(200)] public string? UtmSource { get; set; }

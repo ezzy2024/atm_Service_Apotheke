@@ -71,6 +71,49 @@ namespace ServiceApotheke.API.Controllers
             return Ok(new { message = "Approbationsurkunde verified successfully. Matching engine unlocked for this Pharmacist." });
         }
 
+        [HttpPost("verify-aug/{id}")]
+        public async Task<IActionResult> VerifyAugContract(int id, [FromQuery] string targetType, CancellationToken ct)
+        {
+            if (targetType == "Pharmacist")
+            {
+                var pharmacist = await _dbContext.Pharmacists.FindAsync(new object[] { id }, ct);
+                if (pharmacist == null) return NotFound(new { message = "Pharmacist not found." });
+                if (string.IsNullOrEmpty(pharmacist.AugContractDocumentPath)) return BadRequest(new { message = "No AÜG document uploaded." });
+
+                pharmacist.AugContractStatus = "Active";
+            }
+            else if (targetType == "Pharmacy")
+            {
+                var pharmacy = await _dbContext.Pharmacies.FindAsync(new object[] { id }, ct);
+                if (pharmacy == null) return NotFound(new { message = "Pharmacy not found." });
+                if (string.IsNullOrEmpty(pharmacy.AugContractDocumentPath)) return BadRequest(new { message = "No AÜG document uploaded." });
+
+                pharmacy.AugContractStatus = "Active";
+            }
+            else
+            {
+                return BadRequest(new { message = "Invalid targetType. Must be 'Pharmacist' or 'Pharmacy'." });
+            }
+
+            await _dbContext.SaveChangesAsync(ct);
+            return Ok(new { message = $"AÜG contract verified successfully for {targetType}." });
+        }
+
+        [HttpPost("verify-telepharmacy/{pharmacyId}")]
+        public async Task<IActionResult> VerifyTelepharmacyConsent(int pharmacyId, CancellationToken ct)
+        {
+            var pharmacy = await _dbContext.Pharmacies.FindAsync(new object[] { pharmacyId }, ct);
+            if (pharmacy == null) return NotFound(new { message = "Pharmacy not found." });
+
+            if (string.IsNullOrEmpty(pharmacy.TelepharmacyConsentDocumentPath))
+                return BadRequest(new { message = "No Telepharmacy Consent document uploaded." });
+
+            pharmacy.IsTelepharmacyConsentGranted = true;
+            await _dbContext.SaveChangesAsync(ct);
+
+            return Ok(new { message = "Telepharmacy consent verified successfully. Platform logic unlocked." });
+        }
+
         [HttpPost("sync-migrations")]
         [Authorize] // Assume strict role in prod
         public async Task<IActionResult> SyncMigrations(CancellationToken ct)

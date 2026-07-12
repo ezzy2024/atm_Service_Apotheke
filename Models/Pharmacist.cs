@@ -1,4 +1,4 @@
-ï»¿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace ServiceApotheke.API.Models
@@ -46,7 +46,7 @@ namespace ServiceApotheke.API.Models
         public string? SoftwareExperience { get; set; }
         public string Qualification { get; set; } = "Approbation";
         public string WwsProficiency { get; set; } = "";
-        public int RadiusKm { get; set; } = 20; // Hier als int fÃ¼r korrekte Logik
+        public int RadiusKm { get; set; } = 20; // Hier als int für korrekte Logik
         public string? PreferredStates { get; set; }
         public string? TravelWillingness { get; set; }
         public string? Mobility { get; set; }
@@ -65,10 +65,11 @@ namespace ServiceApotheke.API.Models
 
         // Dateipfade
         public string? ApprobationDocumentPath { get; set; }
+        public string? AugContractDocumentPath { get; set; }
         public string? CvDocumentPath { get; set; }
         public string? ProfilePicturePath { get; set; }
 
-        // KYC & AÃœG Compliance
+        // KYC & AÜG Compliance
         public bool IsKycVerified { get; set; } = false;
         public string? IdCardDocumentPath { get; set; }
         public string? LiabilityInsuranceDocumentPath { get; set; }

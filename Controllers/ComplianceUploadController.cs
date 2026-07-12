@@ -57,5 +57,66 @@ namespace ServiceApotheke.API.Controllers
 
             return Ok(new { message = "Approbationsurkunde securely uploaded and encrypted. Pending administrative verification." });
         }
+
+        [HttpPost("aug-contract")]
+        public async Task<IActionResult> UploadAugContract(IFormFile file, CancellationToken ct)
+        {
+            var roleClaim = User.FindFirstValue(ClaimTypes.Role);
+            var idClaim = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(idClaim, out var entityId)) return Unauthorized(new { message = "Invalid token claims." });
+
+            if (!_sanitizer.IsValidDocument(file))
+                return BadRequest(new { message = "Invalid file payload. Must be a valid PDF, JPG, or PNG under 5MB." });
+
+            using var stream = file.OpenReadStream();
+            var locatorPath = await _cryptoStorage.EncryptAndStoreAsync(stream, file.FileName, ct);
+
+            if (roleClaim == "Pharmacist")
+            {
+                var pharmacist = await _dbContext.Pharmacists.FindAsync(new object[] { entityId }, ct);
+                if (pharmacist == null) return NotFound(new { message = "Pharmacist not found." });
+                pharmacist.AugContractDocumentPath = locatorPath;
+                pharmacist.AugContractStatus = "Pending";
+            }
+            else if (roleClaim == "Pharmacy")
+            {
+                var pharmacy = await _dbContext.Pharmacies.FindAsync(new object[] { entityId }, ct);
+                if (pharmacy == null) return NotFound(new { message = "Pharmacy not found." });
+                pharmacy.AugContractDocumentPath = locatorPath;
+                pharmacy.AugContractStatus = "Pending";
+            }
+            else
+            {
+                return Forbid();
+            }
+
+            await _dbContext.SaveChangesAsync(ct);
+            return Ok(new { message = "AÜG contract securely uploaded and encrypted. Pending administrative verification." });
+        }
+
+        [HttpPost("telepharmacy-consent")]
+        public async Task<IActionResult> UploadTelepharmacyConsent(IFormFile file, CancellationToken ct)
+        {
+            var roleClaim = User.FindFirstValue(ClaimTypes.Role);
+            if (roleClaim != "Pharmacy") return Forbid();
+
+            var idClaim = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(idClaim, out var pharmacyId)) return Unauthorized(new { message = "Invalid token claims." });
+
+            var pharmacy = await _dbContext.Pharmacies.FindAsync(new object[] { pharmacyId }, ct);
+            if (pharmacy == null) return NotFound(new { message = "Pharmacy not found." });
+
+            if (!_sanitizer.IsValidDocument(file))
+                return BadRequest(new { message = "Invalid file payload. Must be a valid PDF, JPG, or PNG under 5MB." });
+
+            using var stream = file.OpenReadStream();
+            var locatorPath = await _cryptoStorage.EncryptAndStoreAsync(stream, file.FileName, ct);
+
+            pharmacy.TelepharmacyConsentDocumentPath = locatorPath;
+            pharmacy.IsTelepharmacyConsentGranted = false; // Requires admin verification
+            
+            await _dbContext.SaveChangesAsync(ct);
+            return Ok(new { message = "Telepharmacy consent securely uploaded and encrypted. Pending administrative verification." });
+        }
     }
 }

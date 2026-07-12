@@ -106,8 +106,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddDataProtection()
     .SetApplicationName("ServiceApothekeAPI")
-    .PersistKeysToGoogleCloudStorage("serviceapotheke-dp-keys", "keys.xml")
-    .ProtectKeysWithGoogleKms("projects/gen-lang-client-0493260544/locations/europe-west3/keyRings/sa-keyring/cryptoKeys/dp-key");
+    .PersistKeysToFileSystem(new System.IO.DirectoryInfo(@"/app/keys"));
 
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.DataRetentionWorker>();
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.GeocodingBackfillWorker>();
