@@ -109,9 +109,8 @@ builder.Services.AddDataProtection()
     .PersistKeysToGoogleCloudStorage("serviceapotheke-dp-keys", "keys.xml")
     .ProtectKeysWithGoogleKms("projects/gen-lang-client-0493260544/locations/europe-west3/keyRings/sa-keyring/cryptoKeys/dp-key");
 
-// Temporarily disabled to prevent fatal host termination during schema desynchronization
-// builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.DataRetentionWorker>();
-// builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.GeocodingBackfillWorker>();
+builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.DataRetentionWorker>();
+builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.GeocodingBackfillWorker>();
 builder.Services.AddScoped<IRedMedicalService, RedMedicalService>();
 
 builder.Services.AddRateLimiter(options =>
@@ -135,6 +134,21 @@ builder.Services.AddAntiforgery(options =>
 });
 
 var app = builder.Build();
+
+// Apply EF Core Migrations Automatically on Startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ServiceApotheke.API.Data.DataContext>();
+    try
+    {
+        Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.Migrate(db.Database);
+        Console.WriteLine("[EF Core] Production database migrations applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[EF Core] Fatal error applying migrations: {ex.Message}");
+    }
+}
 
 app.Use(async (context, next) =>
 {

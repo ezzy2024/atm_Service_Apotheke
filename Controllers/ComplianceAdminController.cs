@@ -72,7 +72,7 @@ namespace ServiceApotheke.API.Controllers
         }
 
         [HttpPost("sync-migrations")]
-        [AllowAnonymous] // Temporarily disabled for sync
+        [Authorize] // Assume strict role in prod
         public async Task<IActionResult> SyncMigrations(CancellationToken ct)
         {
             var migrationIds = new[]
