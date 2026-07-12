@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ServiceApotheke.API.Data;
 
@@ -10,9 +11,11 @@ using ServiceApotheke.API.Data;
 namespace ServiceApotheke.API.Migrations
 {
     [DbContext(typeof(DataContext))]
-    partial class DataContextModelSnapshot : ModelSnapshot
+    [Migration("20260712152741_AddComplianceAndLegalTracking")]
+    partial class AddComplianceAndLegalTracking
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.4");
@@ -207,134 +210,6 @@ namespace ServiceApotheke.API.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("AuditLogs");
-                });
-
-            modelBuilder.Entity("ServiceApotheke.API.Models.Consumer", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("BgbWaiverAcceptedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("HasAcceptedBgbWaiver")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Consumers");
-                });
-
-            modelBuilder.Entity("ServiceApotheke.API.Models.Holiday", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("date");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("StateCode")
-                        .IsRequired()
-                        .HasMaxLength(2)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Holidays");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Date = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Name = "Neujahrstag",
-                            StateCode = "DE"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Date = new DateTime(2026, 4, 3, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Name = "Karfreitag",
-                            StateCode = "DE"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Date = new DateTime(2026, 4, 6, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Name = "Ostermontag",
-                            StateCode = "DE"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Date = new DateTime(2026, 5, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Name = "Tag der Arbeit",
-                            StateCode = "DE"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Date = new DateTime(2026, 5, 14, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Name = "Christi Himmelfahrt",
-                            StateCode = "DE"
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Date = new DateTime(2026, 5, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Name = "Pfingstmontag",
-                            StateCode = "DE"
-                        },
-                        new
-                        {
-                            Id = 7,
-                            Date = new DateTime(2026, 10, 3, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Name = "Tag der Deutschen Einheit",
-                            StateCode = "DE"
-                        },
-                        new
-                        {
-                            Id = 8,
-                            Date = new DateTime(2026, 12, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Name = "1. Weihnachtstag",
-                            StateCode = "DE"
-                        },
-                        new
-                        {
-                            Id = 9,
-                            Date = new DateTime(2026, 12, 26, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Name = "2. Weihnachtstag",
-                            StateCode = "DE"
-                        });
                 });
 
             modelBuilder.Entity("ServiceApotheke.API.Models.InternalShift", b =>
@@ -1136,54 +1011,6 @@ namespace ServiceApotheke.API.Migrations
                     b.ToTable("PharmacyFeedbacks");
                 });
 
-            modelBuilder.Entity("ServiceApotheke.API.Models.SaturdayRotation", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("date");
-
-                    b.Property<int>("PharmacyId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("TeamId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PharmacyId");
-
-                    b.HasIndex("TeamId");
-
-                    b.ToTable("SaturdayRotations");
-                });
-
-            modelBuilder.Entity("ServiceApotheke.API.Models.SaturdayRotationTeam", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PharmacistIds")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("PharmacyId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PharmacyId");
-
-                    b.ToTable("SaturdayRotationTeams");
-                });
-
             modelBuilder.Entity("ServiceApotheke.API.Models.TemperatureLog", b =>
                 {
                     b.Property<int>("Id")
@@ -1461,36 +1288,6 @@ namespace ServiceApotheke.API.Migrations
                     b.Navigation("JobPost");
 
                     b.Navigation("Pharmacist");
-                });
-
-            modelBuilder.Entity("ServiceApotheke.API.Models.SaturdayRotation", b =>
-                {
-                    b.HasOne("ServiceApotheke.API.Models.Pharmacy", "Pharmacy")
-                        .WithMany()
-                        .HasForeignKey("PharmacyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ServiceApotheke.API.Models.SaturdayRotationTeam", "Team")
-                        .WithMany()
-                        .HasForeignKey("TeamId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Pharmacy");
-
-                    b.Navigation("Team");
-                });
-
-            modelBuilder.Entity("ServiceApotheke.API.Models.SaturdayRotationTeam", b =>
-                {
-                    b.HasOne("ServiceApotheke.API.Models.Pharmacy", "Pharmacy")
-                        .WithMany()
-                        .HasForeignKey("PharmacyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Pharmacy");
                 });
 
             modelBuilder.Entity("ServiceApotheke.API.Models.TemperatureLog", b =>

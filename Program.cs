@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using System;
 using System.IO;
 using System.Text;
@@ -70,6 +70,10 @@ builder.Services.AddCors(options => {
 
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<InvoiceService>();
+builder.Services.AddScoped<ServiceApotheke.API.Services.SaturdayRotationService>();
+builder.Services.AddScoped<ServiceApotheke.API.Services.IHaversineDistanceService, ServiceApotheke.API.Services.HaversineDistanceService>();
+builder.Services.AddScoped<ServiceApotheke.API.Services.IFileSanitizationService, ServiceApotheke.API.Services.FileSanitizationService>();
+builder.Services.AddScoped<ServiceApotheke.API.Services.ICryptographicStorageService, ServiceApotheke.API.Services.LocalEncryptedStorageProvider>();
 builder.Services.AddScoped<IMatchingService, MatchingService>();
 
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();

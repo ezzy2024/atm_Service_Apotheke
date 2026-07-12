@@ -135,6 +135,11 @@ namespace ServiceApotheke.API.Data
         public DbSet<PharmacyEmployee> PharmacyEmployees { get; set; }
         public DbSet<InternalShift> InternalShifts { get; set; }
 
+        public DbSet<Consumer> Consumers { get; set; }
+        public DbSet<SaturdayRotation> SaturdayRotations { get; set; }
+        public DbSet<SaturdayRotationTeam> SaturdayRotationTeams { get; set; }
+        public DbSet<Holiday> Holidays { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             var encryptionKey = Environment.GetEnvironmentVariable("DB_ENCRYPTION_KEY") 
@@ -212,6 +217,20 @@ namespace ServiceApotheke.API.Data
                 modelBuilder.Entity<Pharmacy>().Property(p => p.DataProcessingAgreementSignedAt).HasConversion(v => v.HasValue ? v.Value.ToString("O") : null, v => string.IsNullOrEmpty(v) ? (DateTime?)null : DateTime.Parse(v));
                 modelBuilder.Entity<Pharmacy>().Property(p => p.GdprAnonymizedAt).HasConversion(v => v.HasValue ? v.Value.ToString("O") : null, v => string.IsNullOrEmpty(v) ? (DateTime?)null : DateTime.Parse(v));
             }
+
+            // Seed German Federal Holidays (Static Seeding per User Directive)
+            modelBuilder.Entity<Holiday>().HasData(
+                new Holiday { Id = 1, Date = new DateTime(2026, 1, 1), Name = "Neujahrstag", StateCode = "DE" },
+                new Holiday { Id = 2, Date = new DateTime(2026, 4, 3), Name = "Karfreitag", StateCode = "DE" }, // 2026 Karfreitag
+                new Holiday { Id = 3, Date = new DateTime(2026, 4, 6), Name = "Ostermontag", StateCode = "DE" }, // 2026 Ostermontag
+                new Holiday { Id = 4, Date = new DateTime(2026, 5, 1), Name = "Tag der Arbeit", StateCode = "DE" },
+                new Holiday { Id = 5, Date = new DateTime(2026, 5, 14), Name = "Christi Himmelfahrt", StateCode = "DE" }, // 2026
+                new Holiday { Id = 6, Date = new DateTime(2026, 5, 25), Name = "Pfingstmontag", StateCode = "DE" }, // 2026
+                new Holiday { Id = 7, Date = new DateTime(2026, 10, 3), Name = "Tag der Deutschen Einheit", StateCode = "DE" },
+                new Holiday { Id = 8, Date = new DateTime(2026, 12, 25), Name = "1. Weihnachtstag", StateCode = "DE" },
+                new Holiday { Id = 9, Date = new DateTime(2026, 12, 26), Name = "2. Weihnachtstag", StateCode = "DE" }
+            );
+
             base.OnModelCreating(modelBuilder);
         }
 

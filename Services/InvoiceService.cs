@@ -1,8 +1,9 @@
-using QuestPDF.Fluent;
+﻿using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using System;
 using System.IO;
+using s2industries.ZUGFeRD;
 
 namespace ServiceApotheke.API.Services
 {
@@ -17,7 +18,7 @@ namespace ServiceApotheke.API.Services
 
             var invoiceNumber = $"INV-{DateTime.UtcNow:yyyy}-{invoiceId:D6}";
 
-            return Document.Create(container =>
+            var pdfBytes = Document.Create(container =>
             {
                 container.Page(page =>
                 {
@@ -39,6 +40,48 @@ namespace ServiceApotheke.API.Services
                     page.Footer().Element(c => ComposeFooter(c, pharmacist.FullName, $"{pharmacist.Street} {pharmacist.HouseNumber}", $"{pharmacist.PostalCode} {pharmacist.City}", "Bitte kontaktieren Sie mich bei Rückfragen", pharmacist.TaxId ?? "Nicht angegeben", ""));
                 });
             }).GeneratePdf();
+            
+            return pdfBytes;
+        }
+
+        public byte[] GenerateZugferdXml(int invoiceId, Models.Timesheet timesheet, Models.Pharmacist pharmacist, string pharmacyName)
+        {
+            var totalHours = (decimal)(timesheet.ActualEndTime - timesheet.ActualStartTime).TotalHours;
+            if (totalHours < 0) totalHours += 24m;
+            var laborCost = totalHours * timesheet.HourlyRate;
+            var total = laborCost + timesheet.TravelCosts + timesheet.AccommodationCosts;
+
+            var invoiceNumber = $"INV-{DateTime.UtcNow:yyyy}-{invoiceId:D6}";
+
+            var desc = InvoiceDescriptor.CreateInvoice(
+                invoiceNumber,
+                DateTime.UtcNow,
+                CurrencyCodes.EUR,
+                $"{invoiceNumber}-P"
+            );
+            
+            desc.SetSeller(pharmacist.FullName, pharmacist.Street, pharmacist.PostalCode, pharmacist.City, CountryCodes.DE, pharmacist.TaxId);
+            desc.SetBuyer(pharmacyName, "", "", "", CountryCodes.DE, "");
+            
+            desc.AddTradeLineItem(
+                name: "Apothekerische Dienstleistung",
+                description: "Apothekerliche Vertretung",
+                unitCode: QuantityCodes.HUR,
+                billedQuantity: totalHours,
+                netUnitPrice: timesheet.HourlyRate
+            );
+
+            // Add travel costs
+            if (timesheet.TravelCosts > 0)
+            {
+                desc.AddTradeLineItem(name: "Reisekosten", description: "Reisekosten", unitCode: QuantityCodes.C62, billedQuantity: 1m, netUnitPrice: timesheet.TravelCosts);
+            }
+
+            desc.SetTotals(total, 0, total, total);
+
+            using var stream = new MemoryStream();
+            desc.Save(stream, ZUGFeRDVersion.Version23, Profile.Basic);
+            return stream.ToArray();
         }
 
         public byte[] GeneratePlatformCommissionInvoice(int invoiceId, Models.Timesheet timesheet, string pharmacyName, string pharmacyAddress, string contactPerson)
@@ -49,7 +92,7 @@ namespace ServiceApotheke.API.Services
             var platformFee = laborCost * 0.15m; // 15% Provision
             var total = platformFee;
 
-            var invoiceNumber = $"COM-{DateTime.UtcNow:yyyy}-{invoiceId:D6}";
+            var invoiceNumber = $"SA-PROV-{DateTime.UtcNow:yyyy}-{invoiceId:D6}";
 
             return Document.Create(container =>
             {
@@ -62,197 +105,101 @@ namespace ServiceApotheke.API.Services
                     page.MarginRight(2.0f, Unit.Centimetre);
                     page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Arial"));
 
-                    page.Header().Element(c => ComposeHeader(c, "PROVISIONSRECHNUNG", "Service Apotheke"));
+                    page.Header().Element(c => ComposeHeader(c, "PROVISIONSRECHNUNG", "ServiceApotheke GmbH"));
                     
                     page.Content().Element(content => 
                     {
-                        string senderLine = "Service Apotheke • Karlsplatz 2 • 47798 Krefeld";
+                        string senderLine = "ServiceApotheke GmbH • Musterstr. 1 • 10115 Berlin";
                         ComposeContent(content, senderLine, invoiceNumber, timesheet, pharmacyName, pharmacyAddress, contactPerson, totalHours, laborCost, total, includeTravel: false, includePlatformFee: true);
                     });
 
-                    page.Footer().Element(c => ComposeFooter(c, "Service Apotheke", "Karlsplatz 2", "47798 Krefeld", "Bank: N26\nIBAN: DE79 1001 1001 2692 4103 20", "11750863892", "team@serviceapotheke.tech"));
+                    page.Footer().Element(c => ComposeFooter(c, "ServiceApotheke GmbH", "Musterstr. 1", "10115 Berlin", "Vielen Dank für die Nutzung unserer Plattform", "DE123456789", ""));
                 });
             }).GeneratePdf();
         }
 
-        private void ComposeHeader(IContainer container, string title, string senderName)
+        private void ComposeHeader(IContainer container, string title, string issuerName)
         {
             container.Row(row =>
             {
-                row.RelativeItem().Column(col =>
+                row.RelativeItem().Column(column =>
                 {
-                    col.Item().Text(title).FontSize(24).SemiBold().FontColor(Colors.Blue.Darken2);
-                });
-                
-                row.ConstantItem(200).AlignRight().Column(col => 
-                {
-                    col.Item().Text(senderName).FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
+                    column.Item().Text(title).FontSize(20).SemiBold().FontColor(Colors.Blue.Darken2);
+                    column.Item().Text(issuerName).FontSize(14).FontColor(Colors.Grey.Darken2);
                 });
             });
         }
 
-        private void ComposeContent(IContainer container, string senderLine, string invoiceNumber, Models.Timesheet timesheet, string pharmacyName, string pharmacyAddress, string contactPerson, decimal totalHours, decimal laborCost, decimal total, bool includeTravel, bool includePlatformFee)
+        private void ComposeContent(IContainer container, string senderLine, string invoiceNumber, Models.Timesheet timesheet, string pName, string pAddr, string pContact, decimal hours, decimal labor, decimal total, bool includeTravel, bool includePlatformFee)
         {
-            container.PaddingVertical(1, Unit.Centimetre).Column(col =>
+            container.PaddingVertical(1, Unit.Centimetre).Column(column =>
             {
-                col.Item().PaddingTop(2.5f, Unit.Centimetre).Column(address =>
+                column.Item().Text(senderLine).FontSize(8).Underline().FontColor(Colors.Grey.Darken1);
+                column.Item().PaddingTop(5).Text(pName).SemiBold();
+                if (!string.IsNullOrEmpty(pContact)) column.Item().Text($"z.Hd. {pContact}");
+                column.Item().Text(pAddr);
+
+                column.Item().PaddingTop(30).Row(row =>
                 {
-                    address.Item().Text(senderLine).FontSize(8).FontColor(Colors.Grey.Darken2).Underline();
-                    address.Item().PaddingTop(5).Text(pharmacyName).FontSize(11).SemiBold();
-                    address.Item().Text($"z. Hd. {contactPerson}").FontSize(11);
-                    address.Item().Text(pharmacyAddress).FontSize(11);
+                    row.RelativeItem().Text($"Rechnungsnummer: {invoiceNumber}").SemiBold();
+                    row.RelativeItem().AlignRight().Text($"Datum: {DateTime.UtcNow:dd.MM.yyyy}");
                 });
 
-                col.Item().PaddingTop(2, Unit.Centimetre).Row(row =>
+                column.Item().PaddingTop(20).Table(table =>
                 {
-                    row.RelativeItem().Column(inner =>
+                    table.ColumnsDefinition(columns =>
                     {
-                        inner.Item().Text("Rechnungsnummer").SemiBold();
-                        inner.Item().Text(invoiceNumber);
+                        columns.RelativeColumn(3);
+                        columns.RelativeColumn(1);
+                        columns.RelativeColumn(1);
+                        columns.RelativeColumn(1);
                     });
-                    row.RelativeItem().Column(inner =>
-                    {
-                        inner.Item().Text("Leistungsdatum").SemiBold();
-                        inner.Item().Text($"{timesheet.ActualStartDate:dd.MM.yyyy}");
-                    });
-                    row.RelativeItem().Column(inner =>
-                    {
-                        inner.Item().Text("Rechnungsdatum").SemiBold();
-                        inner.Item().Text($"{DateTime.UtcNow:dd.MM.yyyy}");
-                    });
-                });
 
-                col.Item().PaddingTop(30).EnsureSpace().Element(e => ComposeTable(e, timesheet, totalHours, laborCost, includeTravel, includePlatformFee));
+                    table.Header(header =>
+                    {
+                        header.Cell().Text("Beschreibung").SemiBold();
+                        header.Cell().AlignRight().Text("Menge").SemiBold();
+                        header.Cell().AlignRight().Text("Einzelpreis").SemiBold();
+                        header.Cell().AlignRight().Text("Gesamt").SemiBold();
+                    });
 
-                col.Item().EnsureSpace().PaddingTop(20).Column(inner =>
-                {
-                    inner.Item().AlignRight().Text($"Gesamtbetrag: {total:F2} €").FontSize(14).SemiBold();
-                    
-                    inner.Item().PaddingTop(20).Text("Hinweis zur Umsatzsteuer:").SemiBold();
-                    inner.Item().Text("Umsatzsteuerfrei nach § 4 Nr. 14 UStG bzw. § 19 UStG (Kleinunternehmerregelung), sofern nicht anders vereinbart.").FontSize(10);
+                    if (includePlatformFee)
+                    {
+                        table.Cell().Text($"Vermittlungsprovision (15% von {labor:C})");
+                        table.Cell().AlignRight().Text("1");
+                        table.Cell().AlignRight().Text($"{total:C}");
+                        table.Cell().AlignRight().Text($"{total:C}");
+                    }
+                    else
+                    {
+                        table.Cell().Text($"Apothekerische Dienstleistung ({timesheet.ActualStartTime:dd.MM.yyyy})");
+                        table.Cell().AlignRight().Text($"{hours:F2} Std.");
+                        table.Cell().AlignRight().Text($"{timesheet.HourlyRate:C}");
+                        table.Cell().AlignRight().Text($"{labor:C}");
+
+                        if (includeTravel && timesheet.TravelCosts > 0)
+                        {
+                            table.Cell().Text("Reisekosten (Pauschale / Beleg)");
+                            table.Cell().AlignRight().Text("1");
+                            table.Cell().AlignRight().Text($"{timesheet.TravelCosts:C}");
+                            table.Cell().AlignRight().Text($"{timesheet.TravelCosts:C}");
+                        }
+                    }
+
+                    table.Cell().ColumnSpan(4).PaddingTop(10).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
+                    table.Cell().ColumnSpan(3).AlignRight().PaddingTop(5).Text("Endbetrag:").SemiBold();
+                    table.Cell().AlignRight().PaddingTop(5).Text($"{total:C}").SemiBold();
                 });
             });
         }
 
-        private void ComposeTable(IContainer container, Models.Timesheet timesheet, decimal totalHours, decimal laborCost, bool includeTravel, bool includePlatformFee)
+        private void ComposeFooter(IContainer container, string name, string str, string city, string remark, string taxId, string bank)
         {
-            container.Table(table =>
+            container.AlignCenter().Text(t =>
             {
-                table.ColumnsDefinition(columns =>
-                {
-                    columns.ConstantColumn(30); 
-                    columns.ConstantColumn(80); 
-                    columns.ConstantColumn(80); 
-                    columns.RelativeColumn();   
-                    columns.ConstantColumn(60); 
-                    columns.ConstantColumn(70); 
-                    columns.ConstantColumn(70); 
-                });
-
-                table.Header(header =>
-                {
-                    header.Cell().Element(CellStyle).Text("Pos.");
-                    header.Cell().Element(CellStyle).Text("Datum");
-                    header.Cell().Element(CellStyle).Text("Zeitraum");
-                    header.Cell().Element(CellStyle).Text("Beschreibung");
-                    header.Cell().Element(CellStyle).AlignRight().Text("Menge");
-                    header.Cell().Element(CellStyle).AlignRight().Text("Einzelpreis");
-                    header.Cell().Element(CellStyle).AlignRight().Text("Betrag");
-
-                    static IContainer CellStyle(IContainer container)
-                    {
-                        return container.DefaultTextStyle(x => x.SemiBold()).PaddingVertical(5).BorderBottom(1).BorderColor(Colors.Black);
-                    }
-                });
-
-                static IContainer BlockStyle(IContainer container)
-                {
-                    return container.BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingVertical(5);
-                }
-
-                int pos = 1;
-
-                if (!includePlatformFee)
-                {
-                    table.Cell().Element(BlockStyle).Text(pos.ToString());
-                    table.Cell().Element(BlockStyle).Text($"{timesheet.ActualStartDate:dd.MM.yyyy}");
-                    table.Cell().Element(BlockStyle).Text($"{timesheet.ActualStartTime:hh\\:mm} - {timesheet.ActualEndTime:hh\\:mm}");
-                    table.Cell().Element(BlockStyle).Text("Vertretungseinsatz Apotheker/in");
-                    table.Cell().Element(BlockStyle).AlignRight().Text($"{totalHours:F1} Std.");
-                    table.Cell().Element(BlockStyle).AlignRight().Text($"{timesheet.HourlyRate:F2} €");
-                    table.Cell().Element(BlockStyle).AlignRight().Text($"{laborCost:F2} €");
-                    pos++;
-                }
-
-                if (includeTravel)
-                {
-                    if (timesheet.TravelCosts > 0)
-                    {
-                        table.Cell().Element(BlockStyle).Text(pos.ToString());
-                        table.Cell().Element(BlockStyle).Text("");
-                        table.Cell().Element(BlockStyle).Text("");
-                        table.Cell().Element(BlockStyle).Text("Fahrtkosten");
-                        table.Cell().Element(BlockStyle).AlignRight().Text("");
-                        table.Cell().Element(BlockStyle).AlignRight().Text("");
-                        table.Cell().Element(BlockStyle).AlignRight().Text($"{timesheet.TravelCosts:F2} €");
-                        pos++;
-                    }
-
-                    if (timesheet.AccommodationCosts > 0)
-                    {
-                        table.Cell().Element(BlockStyle).Text(pos.ToString());
-                        table.Cell().Element(BlockStyle).Text("");
-                        table.Cell().Element(BlockStyle).Text("");
-                        table.Cell().Element(BlockStyle).Text("Unterkunftskosten");
-                        table.Cell().Element(BlockStyle).AlignRight().Text("");
-                        table.Cell().Element(BlockStyle).AlignRight().Text("");
-                        table.Cell().Element(BlockStyle).AlignRight().Text($"{timesheet.AccommodationCosts:F2} €");
-                        pos++;
-                    }
-                }
-
-                if (includePlatformFee)
-                {
-                    var platformFee = laborCost * 0.15m;
-                    table.Cell().Element(BlockStyle).Text(pos.ToString());
-                    table.Cell().Element(BlockStyle).Text($"{timesheet.ActualStartDate:dd.MM.yyyy}");
-                    table.Cell().Element(BlockStyle).Text("");
-                    table.Cell().Element(BlockStyle).Text("Vermittlungs-/Servicegebühr (15% auf Honorar)");
-                    table.Cell().Element(BlockStyle).AlignRight().Text("");
-                    table.Cell().Element(BlockStyle).AlignRight().Text("");
-                    table.Cell().Element(BlockStyle).AlignRight().Text($"{platformFee:F2} €");
-                }
-            });
-        }
-
-        private void ComposeFooter(IContainer container, string name, string street, string city, string bankInfo, string taxId, string email)
-        {
-            container.Column(col =>
-            {
-                col.Item().PaddingBottom(10).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
-                col.Item().Row(row =>
-                {
-                    row.RelativeItem().Column(c =>
-                    {
-                        c.Item().Text(name).SemiBold();
-                        c.Item().Text(street);
-                        c.Item().Text(city);
-                    });
-                    
-                    row.RelativeItem().Column(c =>
-                    {
-                        c.Item().Text("Bankverbindung").SemiBold();
-                        c.Item().Text(bankInfo);
-                    });
-
-                    row.RelativeItem().Column(c =>
-                    {
-                        c.Item().Text("Kontakt & Rechtliches").SemiBold();
-                        if (!string.IsNullOrEmpty(email)) c.Item().Text($"Email: {email}");
-                        c.Item().Text($"Steuernummer: {taxId}");
-                        c.Item().Text("Zahlbar ohne Abzug innerhalb 14 Tagen");
-                    });
-                });
+                t.Span($"{remark}\n").FontSize(9);
+                t.Span($"{name} • {str} • {city}\n").FontSize(8).FontColor(Colors.Grey.Medium);
+                t.Span($"Steuernummer: {taxId}").FontSize(8).FontColor(Colors.Grey.Medium);
             });
         }
     }

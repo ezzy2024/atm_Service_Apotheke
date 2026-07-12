@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using ServiceApotheke.API.Models.ATM;
 using ServiceApotheke.API.Models.PDL;
@@ -25,6 +25,9 @@ namespace ServiceApotheke.API.Models
         public bool IsEmailConfirmed { get; set; }
         public string? EmailConfirmationToken { get; set; }
         public bool IsVerified { get; set; } = false;
+        public string AugContractStatus { get; set; } = "Pending"; // Pending, Active, Expired
+        public string UstIdValidationStatus { get; set; } = "Pending"; // Pending, Valid, Invalid
+        public string? UstIdNr { get; set; }
         
         [MaxLength(100)]
         public string? ApiKey { get; set; }

@@ -1,35 +1,100 @@
-using System.Collections.Generic;
+using System;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ServiceApotheke.API.Data;
 using ServiceApotheke.API.Services;
 
 namespace ServiceApotheke.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize] // Ensure endpoints are secured
+    [Authorize]
     public class MatchingController : ControllerBase
     {
-        private readonly IMatchingService _matchingService;
+        private readonly DataContext _dbContext;
+        private readonly IHaversineDistanceService _haversine;
 
-        public MatchingController(IMatchingService matchingService)
+        public MatchingController(DataContext dbContext, IHaversineDistanceService haversine)
         {
-            _matchingService = matchingService;
+            _dbContext = dbContext;
+            _haversine = haversine;
         }
 
-        [HttpGet("{id}/matches")]
-        [HttpGet("pharmacist/{id}/jobs")]
-        public async Task<ActionResult<IEnumerable<MatchResultDto>>> GetMatchesForPharmacist(int id)
+        [HttpGet("available-shifts")]
+        public async Task<IActionResult> GetAvailableShifts(CancellationToken ct)
         {
-            var matches = await _matchingService.FindMatchesForPharmacistAsync(id);
-            return Ok(matches);
-        }
+            // Extract Identity
+            var pharmacistIdClaim = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(pharmacistIdClaim, out var pharmacistId))
+            {
+                return Unauthorized(new { message = "Invalid token claims." });
+            }
 
-        [HttpGet("jobpost/{id}/pharmacists")]
-        public async Task<ActionResult<IEnumerable<MatchResultDto>>> GetMatchesForJobPost(int id)
-        {
-            var matches = await _matchingService.FindMatchesForJobPostAsync(id);
+            var pharmacist = await _dbContext.Pharmacists.FindAsync(new object[] { pharmacistId }, ct);
+            if (pharmacist == null)
+            {
+                return NotFound(new { message = "Pharmacist not found." });
+            }
+
+            // Compliance Gating (Pre-Filtration)
+            if (!pharmacist.IsApprobationVerified || pharmacist.AugContractStatus != "Active")
+            {
+                return StatusCode(403, new { 
+                    code = "COMPLIANCE_LOCK", 
+                    message = "Pharmacist must have verified Approbation and an Active AÜG contract to view shifts." 
+                });
+            }
+
+            if (!pharmacist.Latitude.HasValue || !pharmacist.Longitude.HasValue)
+            {
+                return BadRequest(new { 
+                    message = "Pharmacist location (Latitude/Longitude) is required for proximity matching." 
+                });
+            }
+
+            // Execute Matching
+            var activeJobPosts = await _dbContext.JobPosts
+                .Include(j => j.Pharmacy)
+                .Where(j => j.Status == "Open" || j.Status == "Active")
+                .ToListAsync(ct);
+
+            var matches = activeJobPosts
+                .Where(j => j.Pharmacy.Latitude.HasValue && j.Pharmacy.Longitude.HasValue)
+                .Select(j => new
+                {
+                    JobPost = j,
+                    Distance = _haversine.CalculateDistance(
+                        pharmacist.Latitude.Value, 
+                        pharmacist.Longitude.Value, 
+                        j.Pharmacy.Latitude.Value, 
+                        j.Pharmacy.Longitude.Value)
+                })
+                .Where(x => x.Distance <= pharmacist.MaxDistanceKm)
+                .OrderBy(x => x.Distance)
+                .Select(x => new
+                {
+                    id = x.JobPost.Id,
+                    title = x.JobPost.Title,
+                    description = x.JobPost.Description,
+                    date = x.JobPost.StartDate,
+                    hourlyRate = x.JobPost.Salary,
+                    startTime = x.JobPost.StartDate,
+                    endTime = x.JobPost.EndDate,
+                    distanceKm = Math.Round(x.Distance, 1),
+                    pharmacy = new {
+                        id = x.JobPost.Pharmacy.Id,
+                        name = x.JobPost.Pharmacy.PharmacyName,
+                        city = x.JobPost.Pharmacy.City,
+                        postalCode = x.JobPost.Pharmacy.PostalCode
+                    }
+                })
+                .ToList();
+
             return Ok(matches);
         }
     }
