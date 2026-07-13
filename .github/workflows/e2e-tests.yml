@@ -14,6 +14,7 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: 18
+    - run: rm -rf package-lock.json node_modules || true
     - run: npm install
     - run: npx playwright install --with-deps
     - run: npm run build

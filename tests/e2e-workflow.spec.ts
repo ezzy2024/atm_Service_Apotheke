@@ -35,7 +35,7 @@ test('Automatisierter Kiosk-Triage und Export-Workflow', async ({ page }) => {
   await page.click('text=Aufnahme starten'); 
   
   // Fill manual form on Session.tsx
-  await page.fill('[placeholder="Vollständiger Name"]', 'Max Mustermann');
+  await page.fill('[placeholder="Vollständiger Name"]', 'Ezzeldin Hassan');
   await page.fill('input[type="date"]', '1990-01-01');
   await page.fill('[placeholder="Krankenkasse Name"]', 'AOK Rheinland');
   await page.fill('[placeholder="Kostenträgerkennung (IK - 9 Ziffern)"]', '123456789');

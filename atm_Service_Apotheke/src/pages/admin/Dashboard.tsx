@@ -54,7 +54,7 @@ import deLocale from "@fullcalendar/core/locales/de";
 const MOCK_APPOINTMENTS: Appointment[] = [
   {
     id: "1",
-    patient_name: "Max Mustermann",
+    patient_name: "Ezzeldin Hassan",
     start_time: new Date().toISOString(),
     end_time: new Date(Date.now() + 1800000).toISOString(),
     status: "scheduled",

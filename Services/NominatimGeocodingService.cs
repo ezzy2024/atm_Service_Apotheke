@@ -14,7 +14,7 @@ namespace ServiceApotheke.API.Services
         {
             _httpClient = httpClient;
             // Nominatim requires a User-Agent header
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "ServiceApotheke/1.0");
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "ServiceApotheke/1.0 (team@serviceapotheke.tech)");
         }
 
         public async Task<(double Latitude, double Longitude)?> GetCoordinatesAsync(string address)
