@@ -89,8 +89,8 @@ namespace ServiceApotheke.API.Controllers.PDL
                     p.Id,
                     p.CiphertextBase64,
                     p.IvBase64,
-                    HasAnalysis = p.PdlServices.Any(s => s.ServiceType == "POLYMEDIKATION"),
-                    LatestPdfUrl = p.PdlServices.Where(s => s.ServiceType == "POLYMEDIKATION")
+                    HasAnalysis = p.PdlServices.Any(s => s.ServiceType == "POLYMEDIKATION" || s.ServiceType == "AMTS_POLYMEDIKATION"),
+                    LatestPdfUrl = p.PdlServices.Where(s => s.ServiceType == "POLYMEDIKATION" || s.ServiceType == "AMTS_POLYMEDIKATION")
                                       .SelectMany(s => _context.PdlDocuments.Where(d => d.PdlServiceId == s.Id))
                                       .Select(d => d.PdfUrl)
                                       .FirstOrDefault()
@@ -107,5 +107,41 @@ namespace ServiceApotheke.API.Controllers.PDL
             // All AI orchestration must now occur client-side within the React UI.
             return StatusCode(501, "Backend AI Analysis is disabled due to Zero-Knowledge architecture. Execute via client-side Orchestration.");
         }
+
+        [HttpPost("services")]
+        public async Task<IActionResult> CreateService([FromBody] PdlServicePayload payload)
+        {
+            var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userId, out int pharmacyUserId)) return Unauthorized();
+
+            var patient = await _context.Patients.FirstOrDefaultAsync(p => p.Id == payload.PatientId && p.PharmacyId == pharmacyUserId);
+            if (patient == null) return NotFound("Patient not found.");
+
+            var service = new PdlService 
+            {
+                PatientId = patient.Id,
+                ServiceType = payload.ServiceType,
+                Status = "PERFORMED",
+                PerformedAt = DateTime.UtcNow,
+                // Pack ciphertext into existing JSON column to avoid EF Migration churn
+                AiAnalysisResultJson = JsonSerializer.Serialize(new { 
+                    ciphertextBase64 = payload.CiphertextBase64, 
+                    ivBase64 = payload.IvBase64 
+                })
+            };
+            
+            _context.PdlServices.Add(service);
+            await _context.SaveChangesAsync();
+            
+            return Ok(new { success = true, serviceId = service.Id });
+        }
+    }
+
+    public class PdlServicePayload 
+    {
+        public int PatientId { get; set; }
+        public string ServiceType { get; set; }
+        public string CiphertextBase64 { get; set; }
+        public string IvBase64 { get; set; }
     }
 }
