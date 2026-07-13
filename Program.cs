@@ -105,8 +105,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddDataProtection()
-    .SetApplicationName("ServiceApothekeAPI")
-    .PersistKeysToFileSystem(new System.IO.DirectoryInfo(@"/app/keys"));
+    .SetApplicationName("ServiceApotheke")
+    .PersistKeysToFileSystem(new DirectoryInfo(@"/tmp/keys"));
 
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.DataRetentionWorker>();
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.GeocodingBackfillWorker>();
