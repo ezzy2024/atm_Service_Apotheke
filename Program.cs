@@ -479,6 +479,77 @@ await Task.Delay(3000); // Wait for Cloud SQL proxy
         } 
         catch (Exception ex) { Console.WriteLine(ex.Message); }
 
+        try 
+        {
+            db.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS ""PharmacyEmployees"" (
+                    ""Id"" serial PRIMARY KEY,
+                    ""PharmacyId"" integer NOT NULL REFERENCES ""Pharmacies"" (""Id"") ON DELETE CASCADE,
+                    ""FirstName"" text NOT NULL,
+                    ""LastName"" text NOT NULL,
+                    ""Role"" text NOT NULL,
+                    ""ColorCode"" text NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_PharmacyEmployees_PharmacyId"" ON ""PharmacyEmployees"" (""PharmacyId"");
+
+                CREATE TABLE IF NOT EXISTS ""InternalShifts"" (
+                    ""Id"" serial PRIMARY KEY,
+                    ""PharmacyId"" integer NOT NULL REFERENCES ""Pharmacies"" (""Id"") ON DELETE CASCADE,
+                    ""PharmacyEmployeeId"" integer NOT NULL REFERENCES ""PharmacyEmployees"" (""Id"") ON DELETE CASCADE,
+                    ""Date"" timestamp with time zone NOT NULL,
+                    ""StartTime"" interval NOT NULL,
+                    ""EndTime"" interval NOT NULL,
+                    ""IsEmergencyDuty"" boolean NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_InternalShifts_PharmacyId"" ON ""InternalShifts"" (""PharmacyId"");
+                CREATE INDEX IF NOT EXISTS ""IX_InternalShifts_PharmacyEmployeeId"" ON ""InternalShifts"" (""PharmacyEmployeeId"");
+            ");
+            Console.WriteLine("Successfully created PharmacyEmployees and InternalShifts tables.");
+        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
+
+        try 
+        {
+            db.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS ""Consumers"" (
+                    ""Id"" serial PRIMARY KEY,
+                    ""Email"" character varying(256) NOT NULL,
+                    ""PasswordHash"" text NOT NULL,
+                    ""FirstName"" character varying(100) NOT NULL,
+                    ""LastName"" character varying(100) NOT NULL,
+                    ""CreatedAt"" timestamp with time zone NOT NULL,
+                    ""HasAcceptedBgbWaiver"" boolean NOT NULL,
+                    ""BgbWaiverAcceptedAt"" timestamp with time zone
+                );
+
+                CREATE TABLE IF NOT EXISTS ""Holidays"" (
+                    ""Id"" serial PRIMARY KEY,
+                    ""Date"" date NOT NULL,
+                    ""Name"" character varying(100) NOT NULL,
+                    ""StateCode"" character varying(2) NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS ""SaturdayRotationTeams"" (
+                    ""Id"" serial PRIMARY KEY,
+                    ""Name"" text NOT NULL,
+                    ""PharmacyId"" integer NOT NULL REFERENCES ""Pharmacies"" (""Id"") ON DELETE CASCADE,
+                    ""PharmacistIds"" text NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_SaturdayRotationTeams_PharmacyId"" ON ""SaturdayRotationTeams"" (""PharmacyId"");
+
+                CREATE TABLE IF NOT EXISTS ""SaturdayRotations"" (
+                    ""Id"" serial PRIMARY KEY,
+                    ""Date"" date NOT NULL,
+                    ""TeamId"" integer NOT NULL REFERENCES ""SaturdayRotationTeams"" (""Id"") ON DELETE CASCADE,
+                    ""PharmacyId"" integer NOT NULL REFERENCES ""Pharmacies"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_SaturdayRotations_PharmacyId"" ON ""SaturdayRotations"" (""PharmacyId"");
+                CREATE INDEX IF NOT EXISTS ""IX_SaturdayRotations_TeamId"" ON ""SaturdayRotations"" (""TeamId"");
+            ");
+            Console.WriteLine("Successfully created Phase 5 scheduling tables.");
+        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
+
         try
         {
             db.Database.ExecuteSqlRaw(@"
@@ -521,6 +592,21 @@ await Task.Delay(3000); // Wait for Cloud SQL proxy
                 ALTER TABLE ""Invoices"" ADD COLUMN IF NOT EXISTS ""PaidAt"" timestamp with time zone;
             ");
             Console.WriteLine("Successfully added PaidAt column to Invoices.");
+        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
+
+        try 
+        {
+            if (db.Database.ProviderName != "Microsoft.EntityFrameworkCore.Sqlite") 
+            {
+                db.Database.ExecuteSqlRaw(@"
+                    ALTER TABLE ""Pharmacists"" ALTER COLUMN ""IsApprobationVerified"" TYPE boolean USING CASE WHEN ""IsApprobationVerified""::text IN ('1', 'true', 't', 'y', 'yes', 'on') THEN true ELSE false END;
+                    ALTER TABLE ""Pharmacies"" ALTER COLUMN ""IsTelepharmacyConsentGranted"" TYPE boolean USING CASE WHEN ""IsTelepharmacyConsentGranted""::text IN ('1', 'true', 't', 'y', 'yes', 'on') THEN true ELSE false END;
+                    ALTER TABLE ""ConsentAgreements"" ALTER COLUMN ""IsTelepharmacyConsentGranted"" TYPE boolean USING CASE WHEN ""IsTelepharmacyConsentGranted""::text IN ('1', 'true', 't', 'y', 'yes', 'on') THEN true ELSE false END;
+                    ALTER TABLE ""ConsentAgreements"" ALTER COLUMN ""IsWwsExportGranted"" TYPE boolean USING CASE WHEN ""IsWwsExportGranted""::text IN ('1', 'true', 't', 'y', 'yes', 'on') THEN true ELSE false END;
+                ");
+                Console.WriteLine("Successfully casted integer boolean columns to PostgreSQL boolean.");
+            }
         }
         catch (Exception ex) { Console.WriteLine(ex.Message); }
 
