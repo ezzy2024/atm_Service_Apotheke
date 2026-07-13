@@ -22,7 +22,7 @@ namespace ServiceApotheke.API.Services
         {
             var keyBase64 = configuration["DMS:AesEncryptionKey"] ?? "b2VFRURHREVDc1Y5RElKT3gwbThYMWtzbnRTRkhUcmE="; // 32 bytes base64 for local dev
             _encryptionKey = Convert.FromBase64String(keyBase64);
-            _storageDirectory = Path.Combine(Directory.GetCurrentDirectory(), "DmsVault");
+            _storageDirectory = Path.Combine(Path.GetTempPath(), "DmsVault");
 
             if (!Directory.Exists(_storageDirectory))
             {

@@ -463,10 +463,14 @@ await Task.Delay(3000); // Wait for Cloud SQL proxy
         try 
         {
             db.Database.ExecuteSqlRaw(@"
-                ALTER TABLE ""ConsentAgreement"" ADD COLUMN IF NOT EXISTS ""IsTelepharmacyConsentGranted"" boolean DEFAULT false;
-                ALTER TABLE ""ConsentAgreement"" ADD COLUMN IF NOT EXISTS ""IsWwsExportGranted"" boolean DEFAULT false;
+                ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""AugContractDocumentPath"" text;
+                ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""AugContractStatus"" text DEFAULT 'Pending';
+                ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""TelepharmacyConsentDocumentPath"" text;
+                ALTER TABLE ""Pharmacies"" ADD COLUMN IF NOT EXISTS ""IsTelepharmacyConsentGranted"" boolean DEFAULT false;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""AugContractDocumentPath"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""AugContractStatus"" text DEFAULT 'Pending';
             ");
-            Console.WriteLine("Successfully added Consent columns.");
+            Console.WriteLine("Successfully added Phase 8 DMS and Telepharmacy columns.");
         }
         catch (Exception ex) { Console.WriteLine(ex.Message); }
 
