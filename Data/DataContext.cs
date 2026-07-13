@@ -122,6 +122,8 @@ namespace ServiceApotheke.API.Data
         public DbSet<TemperatureLog> TemperatureLogs { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<MobileRefreshToken> MobileRefreshTokens { get; set; }
+        public DbSet<DeviceToken> DeviceTokens { get; set; }
 
         public DbSet<KioskTerminal> KioskTerminals { get; set; }
         public DbSet<ConsentAgreement> ConsentAgreements { get; set; }

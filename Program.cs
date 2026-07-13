@@ -20,8 +20,15 @@ using ServiceApotheke.API.Middleware;
 using ServiceApotheke.API.Services;
 using ServiceApotheke.API.Services.Telepharmazie;
 using Microsoft.AspNetCore.HttpOverrides;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
+try {
+    if (FirebaseApp.DefaultInstance == null)
+        FirebaseApp.Create(new AppOptions { Credential = GoogleCredential.GetApplicationDefault() });
+} catch { /* Handle local missing creds */ }
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -80,6 +87,7 @@ builder.Services.AddScoped<IMatchingService, MatchingService>();
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
 builder.Services.AddHttpClient<ServiceApotheke.API.Services.PDL.AiAnalysisService>();
 builder.Services.AddScoped<ServiceApotheke.API.Services.PDL.PdlReportEngine>();
+builder.Services.AddScoped<INotificationDispatcher, FcmNotificationDispatcher>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options => {

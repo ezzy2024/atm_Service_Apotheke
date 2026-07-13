@@ -18,11 +18,46 @@ namespace ServiceApotheke.API.Controllers
     {
         private readonly DataContext _dbContext;
         private readonly IHaversineDistanceService _haversine;
+        private readonly INotificationDispatcher _dispatcher;
+        private readonly IMatchingService _matchingService;
 
-        public MatchingController(DataContext dbContext, IHaversineDistanceService haversine)
+        public MatchingController(
+            DataContext dbContext, 
+            IHaversineDistanceService haversine, 
+            INotificationDispatcher dispatcher,
+            IMatchingService matchingService)
         {
             _dbContext = dbContext;
             _haversine = haversine;
+            _dispatcher = dispatcher;
+            _matchingService = matchingService;
+        }
+
+        [HttpPost("job-posts/{jobPostId}/notify-matches")]
+        public async Task<IActionResult> NotifyMatchedPharmacists(int jobPostId)
+        {
+            // Identity checks could go here depending on Pharmacy role
+            var matches = await _matchingService.FindMatchesForJobPostAsync(jobPostId);
+            
+            // For example, notify top 5 matches
+            var topMatches = matches.Take(5).ToList();
+            
+            int notifiedCount = 0;
+            foreach (var match in topMatches)
+            {
+                var title = "Neue Schicht verfügbar!";
+                var body = $"Eine neue Schicht bei {match.JobPost.Pharmacy.PharmacyName} passt zu Ihrem Profil (Match-Score: {match.Score * 100}%).";
+                
+                await _dispatcher.DispatchToPharmacistAsync(
+                    match.Pharmacist.Id, 
+                    title, 
+                    body, 
+                    new { jobPostId = jobPostId, type = "NEW_MATCH" }
+                );
+                notifiedCount++;
+            }
+
+            return Ok(new { message = $"Dispatched push notifications to {notifiedCount} freelancers." });
         }
 
         [HttpGet("available-shifts")]
