@@ -304,17 +304,17 @@ namespace ServiceApotheke.API.Controllers
 
     public class PharmacyRegDto
     {
-        public string PharmacyName { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-        public string PhoneNumber { get; set; } = string.Empty;
-        public string Street { get; set; } = string.Empty;
-        public string HouseNumber { get; set; } = string.Empty;
-        public string PostalCode { get; set; } = string.Empty;
-        public string City { get; set; } = string.Empty;
-        public string LicenseNumber { get; set; } = string.Empty;
-        public string SoftwareSystem { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
+        public string? PharmacyName { get; set; }
+        public string? Email { get; set; }
+        public string? Password { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? Street { get; set; }
+        public string? HouseNumber { get; set; }
+        public string? PostalCode { get; set; }
+        public string? City { get; set; }
+        public string? LicenseNumber { get; set; }
+        public string? SoftwareSystem { get; set; }
+        public string? Description { get; set; }
         
         // UTM Attribution (Marketing)
         public string? UtmSource { get; set; }
