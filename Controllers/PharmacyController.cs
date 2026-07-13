@@ -49,17 +49,17 @@ namespace ServiceApotheke.API.Controllers
 
             var pharmacy = new Pharmacy
             {
-                PharmacyName = registration.PharmacyName,
-                Email = registration.Email,
+                PharmacyName = registration.PharmacyName ?? "",
+                Email = registration.Email ?? "",
                 PasswordHash = passwordHash,
-                PhoneNumber = registration.PhoneNumber,
-                Street = registration.Street,
-                HouseNumber = registration.HouseNumber,
-                PostalCode = registration.PostalCode,
-                City = registration.City,
+                PhoneNumber = registration.PhoneNumber ?? "",
+                Street = registration.Street ?? "",
+                HouseNumber = registration.HouseNumber ?? "",
+                PostalCode = registration.PostalCode ?? "",
+                City = registration.City ?? "",
                 Latitude = coords?.Latitude,
                 Longitude = coords?.Longitude,
-                LicenseNumber = registration.LicenseNumber,
+                LicenseNumber = registration.LicenseNumber ?? "",
                 EmailConfirmationToken = token,
                 IsEmailConfirmed = true,
                 
@@ -68,15 +68,15 @@ namespace ServiceApotheke.API.Controllers
                 InvoiceBillingPossible = false, 
                 ParkingAvailable = false,
                 ContactPerson = "",
-                SoftwareSystem = registration.SoftwareSystem,
-                FocusAreas = registration.Description,
+                SoftwareSystem = registration.SoftwareSystem ?? "",
+                FocusAreas = registration.Description ?? "",
                 StaffSupport = "",
                 TargetHourlyRate = null,
                 AccommodationProvided = "",
-                UtmSource = registration.UtmSource,
-                UtmMedium = registration.UtmMedium,
-                UtmCampaign = registration.UtmCampaign,
-                UtmTerm = registration.UtmTerm
+                UtmSource = registration.UtmSource ?? "",
+                UtmMedium = registration.UtmMedium ?? "",
+                UtmCampaign = registration.UtmCampaign ?? "",
+                UtmTerm = registration.UtmTerm ?? ""
             };
 
             _context.Pharmacies.Add(pharmacy);
