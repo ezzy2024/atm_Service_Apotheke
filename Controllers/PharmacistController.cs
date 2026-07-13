@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -266,7 +266,7 @@ namespace ServiceApotheke.API.Controllers
             if (approbation == null && cv == null && profilePicture == null)
                 return BadRequest("No files uploaded.");
 
-            var uploadsFolder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "uploads");
+            var uploadsFolder = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ServiceApothekeUploads");
             if (!System.IO.Directory.Exists(uploadsFolder))
                 System.IO.Directory.CreateDirectory(uploadsFolder);
 
