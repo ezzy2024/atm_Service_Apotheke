@@ -19,6 +19,7 @@ using ServiceApotheke.API.Extensions;
 using ServiceApotheke.API.Middleware;
 using ServiceApotheke.API.Services;
 using ServiceApotheke.API.Services.Telepharmazie;
+using Microsoft.AspNetCore.HttpOverrides;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -46,7 +47,7 @@ builder.Services.AddDbContext<DataContext>((sp, options) => {
 
 
 
-builder.Services.AddControllers().AddJsonOptions(options =>
+builder.Services.AddControllersWithViews().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 });
@@ -190,6 +191,14 @@ app.UseExceptionHandler(c => c.Run(async context => {
 
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
+
 app.UseRouting();
 app.UseCors("StrictCorsPolicy");
 app.UseMiddleware<CronAuthMiddleware>();
@@ -223,6 +232,26 @@ await Task.Delay(3000); // Wait for Cloud SQL proxy
                 ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""ContractTermsAcceptedAt"" timestamp with time zone;
                 ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""TaxId"" text;
                 ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""TradeRegisterNumber"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""UstIdValidationStatus"" text DEFAULT 'Pending';
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""HourlyRate"" numeric DEFAULT 0;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""IsKycVerified"" boolean DEFAULT false;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""IdCardDocumentPath"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""LiabilityInsuranceDocumentPath"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""GdprAnonymizedAt"" timestamp with time zone;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""TermsAcceptedAt"" timestamp with time zone;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""TravelWillingness"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""AvailabilityType"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""ShortNoticeAvailability"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""EmergencyServiceWillingness"" boolean DEFAULT false;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""WeekendWillingness"" boolean DEFAULT false;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""FeeModel"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""Mobility"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""PreferredContactMethod"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""PreferredStates"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""SoftwareExperience"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""Specialties"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""TravelExpenses"" text;
+                ALTER TABLE ""Pharmacists"" ADD COLUMN IF NOT EXISTS ""VatSubject"" text;
                 ALTER TABLE ""Pharmacists"" DROP COLUMN IF EXISTS ""Address"";
             ");
             Console.WriteLine("Successfully added missing Pharmacists columns manually.");

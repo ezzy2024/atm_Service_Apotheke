@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -88,7 +88,7 @@ namespace ServiceApotheke.API.Controllers
                 // Process Document File Upload after DB Save (to get ID)
                 if (documentFile != null)
                 {
-                    var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
+                    var webRoot = Path.Combine(Path.GetTempPath(), "ServiceApothekeUploads", "pharmacy");
                     var uploadPath = Path.Combine(webRoot, "uploads", pharmacy.Id.ToString());
 
                     if (!Directory.Exists(uploadPath))

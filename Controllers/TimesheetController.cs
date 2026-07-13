@@ -135,7 +135,7 @@ namespace ServiceApotheke.API.Controllers
             decimal commissionTotalAmount = laborCost * 0.15m;
 
             var invoiceService = new InvoiceService();
-            var baseInvoicePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "invoices");
+            var baseInvoicePath = Path.Combine(Path.GetTempPath(), "ServiceApothekeUploads", "invoices");
             if (!Directory.Exists(baseInvoicePath)) Directory.CreateDirectory(baseInvoicePath);
 
             var serviceInvoice = new Invoice

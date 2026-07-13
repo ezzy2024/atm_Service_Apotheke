@@ -96,7 +96,7 @@ namespace ServiceApotheke.API.Controllers
 
             if (!string.IsNullOrEmpty(invoice.PdfFilePath))
             {
-                var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", invoice.PdfFilePath.TrimStart('/').Replace("/", "\\"));
+                var filePath = Path.Combine(Path.GetTempPath(), "ServiceApothekeUploads", invoice.PdfFilePath.TrimStart('/').Replace("/", "\\"));
                 if (System.IO.File.Exists(filePath))
                 {
                     pdfBytes = await System.IO.File.ReadAllBytesAsync(filePath);

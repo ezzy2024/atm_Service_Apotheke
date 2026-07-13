@@ -28,7 +28,7 @@ namespace ServiceApotheke.API.Controllers
             var user = await _context.Pharmacists.FindAsync(id);
             if (user == null) return NotFound(new { message = "Benutzer nicht gefunden." });
 
-            var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
+            var webRoot = Path.Combine(Path.GetTempPath(), "ServiceApothekeUploads", "pharmacist");
             var uploadPath = Path.Combine(webRoot, "uploads", id.ToString());
 
             if (!Directory.Exists(uploadPath))
