@@ -18,7 +18,7 @@ namespace ServiceApotheke.API.Services.PDL
 
         public string GeneratePolymedicationReport(PdlService pdlService, string wwwrootPath)
         {
-            var pdfPath = Path.Combine(wwwrootPath, "consents", $"PDL_AMTS_{pdlService.Patient.KdnNr}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf");
+            var pdfPath = Path.Combine(wwwrootPath, "consents", $"PDL_AMTS_{pdlService.PatientId}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf");
             Directory.CreateDirectory(Path.Combine(wwwrootPath, "consents"));
 
             Document.Create(container =>
@@ -74,14 +74,11 @@ namespace ServiceApotheke.API.Services.PDL
                         columns.RelativeColumn();
                     });
 
-                    table.Cell().Text("Kunden-Nr:");
-                    table.Cell().Text(pdlService.Patient.KdnNr);
+                    table.Cell().Text("Patient-ID:");
+                    table.Cell().Text(pdlService.PatientId.ToString());
 
-                    table.Cell().Text("Geburtsjahr:");
-                    table.Cell().Text(pdlService.Patient.Geburt);
-
-                    table.Cell().Text("Geschlecht:");
-                    table.Cell().Text(pdlService.Patient.Gender);
+                    table.Cell().Text("Daten (E2EE):");
+                    table.Cell().Text("Verschlüsselt");
                 });
 
                 column.Item().LineHorizontal(1).LineColor(Colors.Grey.Lighten2);

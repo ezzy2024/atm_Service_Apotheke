@@ -32,6 +32,10 @@ try {
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (builder.Environment.IsDevelopment())
+{
+    Environment.SetEnvironmentVariable("DB_ENCRYPTION_KEY", "fallback_key_for_development");
+}
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole();
 
