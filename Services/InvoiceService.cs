@@ -1,4 +1,4 @@
-﻿using QuestPDF.Fluent;
+using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using System;
@@ -105,15 +105,15 @@ namespace ServiceApotheke.API.Services
                     page.MarginRight(2.0f, Unit.Centimetre);
                     page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Arial"));
 
-                    page.Header().Element(c => ComposeHeader(c, "PROVISIONSRECHNUNG", "ServiceApotheke GmbH"));
+                    page.Header().Element(c => ComposeHeader(c, "PROVISIONSRECHNUNG", "ServiceApotheke – Ezzeldin Hassan"));
                     
                     page.Content().Element(content => 
                     {
-                        string senderLine = "ServiceApotheke GmbH • Musterstr. 1 • 10115 Berlin";
+                        string senderLine = "ServiceApotheke – Ezzeldin Hassan • Musterstr. 1 • 10115 Berlin";
                         ComposeContent(content, senderLine, invoiceNumber, timesheet, pharmacyName, pharmacyAddress, contactPerson, totalHours, laborCost, total, includeTravel: false, includePlatformFee: true);
                     });
 
-                    page.Footer().Element(c => ComposeFooter(c, "ServiceApotheke GmbH", "Musterstr. 1", "10115 Berlin", "Vielen Dank für die Nutzung unserer Plattform", "DE123456789", ""));
+                    page.Footer().Element(c => ComposeFooter(c, "ServiceApotheke – Ezzeldin Hassan", "Musterstr. 1", "10115 Berlin", "Vielen Dank für die Nutzung unserer Plattform", "Kleinunternehmerregelung gemäß § 19 UStG", ""));
                 });
             }).GeneratePdf();
         }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ServiceApotheke.API.Data;
 
@@ -10,9 +11,11 @@ using ServiceApotheke.API.Data;
 namespace ServiceApotheke.API.Migrations
 {
     [DbContext(typeof(DataContext))]
-    partial class DataContextModelSnapshot : ModelSnapshot
+    [Migration("20260713132224_AddPharmacyRegistry")]
+    partial class AddPharmacyRegistry
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.4");
@@ -377,17 +380,10 @@ namespace ServiceApotheke.API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTime?>("AcceptedAt")
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTime>("Date")
                         .HasColumnType("TEXT");
 
                     b.Property<TimeSpan>("EndTime")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("EscrowStatus")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsEmergencyDuty")
@@ -399,16 +395,7 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<int>("PharmacyId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("RateNegotiatedBy")
-                        .HasColumnType("TEXT");
-
                     b.Property<TimeSpan>("StartTime")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("StripePaymentIntentId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("StripeTransferId")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -726,7 +713,11 @@ namespace ServiceApotheke.API.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ApprobationNumber")
+                    b.Property<string>("AugContractDocumentPath")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AugContractStatus")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("AvailabilityType")
@@ -755,9 +746,6 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<string>("EmailConfirmationToken")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime?>("EmailConfirmationTokenExpiry")
-                        .HasColumnType("TEXT");
-
                     b.Property<bool>("EmergencyServiceWillingness")
                         .HasColumnType("INTEGER");
 
@@ -765,13 +753,6 @@ namespace ServiceApotheke.API.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("FeeModel")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FreelanceContractDocumentPath")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FreelanceContractStatus")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("FullName")
@@ -795,13 +776,10 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<string>("IdCardDocumentPath")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("IsApprobationVerified")
+                    b.Property<bool>("IsApprobationVerified")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsEmailConfirmed")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsFreelancerConfirmed")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("IsKycVerified")
@@ -856,9 +834,6 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<int>("RadiusKm")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("SessionVersion")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("ShortNoticeAvailability")
                         .HasColumnType("TEXT");
 
@@ -868,14 +843,8 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<string>("Specialties")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Street")
                         .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("StripeConnectAccountId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("TaxId")
@@ -1000,7 +969,11 @@ namespace ServiceApotheke.API.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("BetriebserlaubnisNumber")
+                    b.Property<string>("AugContractDocumentPath")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AugContractStatus")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("City")
@@ -1023,17 +996,7 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<string>("EmailConfirmationToken")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime?>("EmailConfirmationTokenExpiry")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("FocusAreas")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FreelanceContractDocumentPath")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FreelanceContractStatus")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("GdprAnonymizedAt")
@@ -1085,26 +1048,13 @@ namespace ServiceApotheke.API.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("SessionVersion")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("SoftwareSystem")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("StaffSupport")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Street")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("StripeCustomerId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SubscriptionTier")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -1380,9 +1330,6 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<TimeSpan>("ActualStartTime")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("DigitalSignatureHash")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("DisputeReason")
                         .HasColumnType("TEXT");
 
@@ -1397,9 +1344,6 @@ namespace ServiceApotheke.API.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("TimesheetPath")
                         .HasColumnType("TEXT");
 
                     b.Property<decimal>("TravelCosts")

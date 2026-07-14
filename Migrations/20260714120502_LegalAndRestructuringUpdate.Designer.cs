@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ServiceApotheke.API.Data;
 
@@ -10,9 +11,11 @@ using ServiceApotheke.API.Data;
 namespace ServiceApotheke.API.Migrations
 {
     [DbContext(typeof(DataContext))]
-    partial class DataContextModelSnapshot : ModelSnapshot
+    [Migration("20260714120502_LegalAndRestructuringUpdate")]
+    partial class LegalAndRestructuringUpdate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.4");
@@ -755,9 +758,6 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<string>("EmailConfirmationToken")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime?>("EmailConfirmationTokenExpiry")
-                        .HasColumnType("TEXT");
-
                     b.Property<bool>("EmergencyServiceWillingness")
                         .HasColumnType("INTEGER");
 
@@ -854,9 +854,6 @@ namespace ServiceApotheke.API.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int>("RadiusKm")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("SessionVersion")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("ShortNoticeAvailability")
@@ -1023,9 +1020,6 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<string>("EmailConfirmationToken")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime?>("EmailConfirmationTokenExpiry")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("FocusAreas")
                         .HasColumnType("TEXT");
 
@@ -1084,9 +1078,6 @@ namespace ServiceApotheke.API.Migrations
                     b.Property<string>("PostalCode")
                         .IsRequired()
                         .HasColumnType("TEXT");
-
-                    b.Property<int>("SessionVersion")
-                        .HasColumnType("INTEGER");
 
                     b.Property<string>("SoftwareSystem")
                         .HasColumnType("TEXT");

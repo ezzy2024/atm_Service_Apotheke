@@ -36,7 +36,6 @@ namespace ServiceApotheke.API.Controllers
         [AllowAnonymous]
         [HttpPost("register")]
         [EnableRateLimiting("AuthLimiter")]
-        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register([FromBody] PharmacistRegDto registration)
         {
             if (await _context.Pharmacists.AnyAsync(p => p.Email == registration.Email))
@@ -62,6 +61,7 @@ namespace ServiceApotheke.API.Controllers
                 Qualification = registration.Qualification,
                 WwsProficiency = registration.WwsProficiency,
                 EmailConfirmationToken = token,
+                EmailConfirmationTokenExpiry = DateTime.UtcNow.AddHours(24),
                 IsEmailConfirmed = false,
                 
                 // Explicit initialization mapped to exact model types
@@ -118,7 +118,7 @@ namespace ServiceApotheke.API.Controllers
         public async Task<IActionResult> ConfirmEmail([FromBody] EmailConfirmDto model)
         {
             var user = await _context.Pharmacists.SingleOrDefaultAsync(u => u.Email == model.Email);
-            if (user == null || user.EmailConfirmationToken != model.Token) 
+            if (user == null || user.EmailConfirmationToken != model.Token || user.EmailConfirmationTokenExpiry < DateTime.UtcNow) 
                 return BadRequest("Code ungültig oder abgelaufen.");
             
             user.IsEmailConfirmed = true; 
@@ -130,8 +130,6 @@ namespace ServiceApotheke.API.Controllers
         [AllowAnonymous]
         [HttpPost("login")]
         [EnableRateLimiting("AuthLimiter")]
-        [ValidateAntiForgeryToken]
-        
         public async Task<IActionResult> Login([FromBody] LoginDto login)
         {
             var user = await _context.Pharmacists.SingleOrDefaultAsync(p => p.Email == login.Email);
@@ -143,7 +141,12 @@ namespace ServiceApotheke.API.Controllers
 
             var key = Encoding.UTF8.GetBytes("EIN_LANGER_GEHEIMER_SCHLUESSEL_MIT_MINDESTENS_32_ZEICHEN");
             var tokenDescriptor = new SecurityTokenDescriptor {
-                Subject = new ClaimsIdentity(new[] { new Claim("id", user.Id.ToString()), new Claim(ClaimTypes.Email, user.Email), new Claim(ClaimTypes.Role, "Pharmacist") }),
+                Subject = new ClaimsIdentity(new[] { 
+                    new Claim("id", user.Id.ToString()), 
+                    new Claim(ClaimTypes.Email, user.Email), 
+                    new Claim(ClaimTypes.Role, "Pharmacist"),
+                    new Claim("SessionVersion", user.SessionVersion.ToString())
+                }),
                 Expires = DateTime.UtcNow.AddHours(2),
                 Issuer = "ServiceApotheke.API",
                 Audience = "ServiceApotheke.Clients",
@@ -165,6 +168,47 @@ namespace ServiceApotheke.API.Controllers
             if (user == null) return NotFound();
             user.PasswordHash = string.Empty;
             return Ok(user);
+        }
+
+        [AllowAnonymous]
+        [HttpPost("forgot-password")]
+        [EnableRateLimiting("AuthLimiter")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
+        {
+            var user = await _context.Pharmacists.SingleOrDefaultAsync(p => p.Email == dto.Email);
+            if (user == null) return Ok(new { message = "Falls diese E-Mail existiert, wurde ein Link versendet." });
+
+            string token = new Random().Next(100000, 999999).ToString();
+            user.EmailConfirmationToken = token;
+            user.EmailConfirmationTokenExpiry = DateTime.UtcNow.AddHours(1);
+            await _context.SaveChangesAsync();
+
+            string subject = "Passwort zurücksetzen (ServiceApotheke)";
+            string message = $"Ihr Code zum Zurücksetzen des Passworts lautet: {token}\nDieser Code ist 1 Stunde gültig.";
+            await _emailService.SendEmailAsync(user.Email, subject, message);
+
+            return Ok(new { message = "Falls diese E-Mail existiert, wurde ein Link versendet." });
+        }
+
+        [AllowAnonymous]
+        [HttpPost("reset-password")]
+        [EnableRateLimiting("AuthLimiter")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+        {
+            var user = await _context.Pharmacists.SingleOrDefaultAsync(p => p.Email == dto.Email);
+            if (user == null || user.EmailConfirmationToken != dto.Token || user.EmailConfirmationTokenExpiry < DateTime.UtcNow)
+                return BadRequest("Code ungültig oder abgelaufen.");
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+            user.SessionVersion++; // Invalidate active sessions
+            user.EmailConfirmationToken = null;
+
+            var mobileTokens = await _context.MobileRefreshTokens.Where(t => t.PharmacistId == user.Id).ToListAsync();
+            _context.MobileRefreshTokens.RemoveRange(mobileTokens);
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Passwort erfolgreich zurückgesetzt. Sie können sich nun anmelden." });
         }
 
         [HttpPut("{id}/profile")]
@@ -327,5 +371,17 @@ namespace ServiceApotheke.API.Controllers
     {
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+    }
+
+    public class ForgotPasswordDto
+    {
+        public string Email { get; set; } = string.Empty;
+    }
+
+    public class ResetPasswordDto
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Token { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
     }
 }

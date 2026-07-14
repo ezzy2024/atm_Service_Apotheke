@@ -92,6 +92,7 @@ namespace ServiceApotheke.API.Controllers
             if (p == null) return NotFound();
             p.IsVerified = true;
             p.IsEmailConfirmed = true;
+            p.Status = VerificationStatus.Verified;
             await _context.SaveChangesAsync();
             return Ok();
         }
@@ -103,6 +104,7 @@ namespace ServiceApotheke.API.Controllers
             if (p == null) return NotFound();
             p.IsVerified = true;
             p.IsEmailConfirmed = true;
+            p.Status = VerificationStatus.Verified;
             await _context.SaveChangesAsync();
             return Ok();
         }
@@ -219,6 +221,88 @@ namespace ServiceApotheke.API.Controllers
             }
 
             return Ok(new { message = $"Checked kiosk telemetry. Found {inactiveTerminals.Count} non-active terminals." });
+        }
+
+        [HttpPost("migrate-dms-to-gcs")]
+        public async Task<IActionResult> MigrateDmsToGcs(
+            [FromServices] ServiceApotheke.API.Services.ICryptographicStorageService cryptoStorage,
+            [FromServices] ServiceApotheke.API.Services.IGoogleCloudStorageService gcsStorage)
+        {
+            int migratedCount = 0;
+            int errorCount = 0;
+            var errors = new System.Collections.Generic.List<string>();
+
+            async Task<string?> MigrateFileAsync(string? currentPath, string folderName, string defaultMime)
+            {
+                if (string.IsNullOrEmpty(currentPath) || currentPath.StartsWith("gs://"))
+                    return currentPath;
+
+                try
+                {
+                    byte[] fileBytes;
+                    if (currentPath.EndsWith(".enc"))
+                    {
+                        // Encrypted in DmsVault
+                        fileBytes = await cryptoStorage.RetrieveAndDecryptAsync(currentPath);
+                    }
+                    else if (System.IO.File.Exists(currentPath))
+                    {
+                        // Unencrypted in ServiceApothekeUploads or absolute path
+                        fileBytes = await System.IO.File.ReadAllBytesAsync(currentPath);
+                    }
+                    else
+                    {
+                        errors.Add($"File not found for path: {currentPath}");
+                        errorCount++;
+                        return currentPath; // Keep old path if file missing
+                    }
+
+                    using var ms = new System.IO.MemoryStream(fileBytes);
+                    var ext = System.IO.Path.GetExtension(currentPath.Replace(".enc", ""));
+                    if (string.IsNullOrEmpty(ext)) ext = ".pdf";
+                    
+                    var newFileName = $"{folderName}/{Guid.NewGuid()}{ext}";
+                    var mimeType = ext.ToLower() == ".pdf" ? "application/pdf" : 
+                                   ext.ToLower() == ".jpg" || ext.ToLower() == ".jpeg" ? "image/jpeg" : defaultMime;
+
+                    await gcsStorage.UploadDocumentAsync(ms, newFileName, mimeType);
+                    migratedCount++;
+                    return $"gs://{newFileName}";
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"Error migrating {currentPath}: {ex.Message}");
+                    errorCount++;
+                    return currentPath;
+                }
+            }
+
+            var pharmacists = await _context.Pharmacists.ToListAsync();
+            foreach (var p in pharmacists)
+            {
+                p.ApprobationDocumentPath = await MigrateFileAsync(p.ApprobationDocumentPath, "pharmacist-approbations", "application/pdf");
+                p.FreelanceContractDocumentPath = await MigrateFileAsync(p.FreelanceContractDocumentPath, "pharmacist-contracts", "application/pdf");
+                p.CvDocumentPath = await MigrateFileAsync(p.CvDocumentPath, "pharmacist-cvs", "application/pdf");
+                p.ProfilePicturePath = await MigrateFileAsync(p.ProfilePicturePath, "pharmacist-profiles", "image/jpeg");
+                p.IdCardDocumentPath = await MigrateFileAsync(p.IdCardDocumentPath, "pharmacist-idcards", "image/jpeg");
+                p.LiabilityInsuranceDocumentPath = await MigrateFileAsync(p.LiabilityInsuranceDocumentPath, "pharmacist-insurance", "application/pdf");
+            }
+
+            var pharmacies = await _context.Pharmacies.ToListAsync();
+            foreach (var p in pharmacies)
+            {
+                p.FreelanceContractDocumentPath = await MigrateFileAsync(p.FreelanceContractDocumentPath, "pharmacy-contracts", "application/pdf");
+                p.TelepharmacyConsentDocumentPath = await MigrateFileAsync(p.TelepharmacyConsentDocumentPath, "pharmacy-telepharmacy", "application/pdf");
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new {
+                message = "Migration complete.",
+                migratedCount,
+                errorCount,
+                errors
+            });
         }
     }
 }

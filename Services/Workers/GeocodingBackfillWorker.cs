@@ -56,6 +56,7 @@ namespace ServiceApotheke.API.Services.Workers
             var pharmaciesToGeocode = await dbContext.Pharmacies
                 .Where(p => p.Latitude == null || p.Longitude == null)
                 .Where(p => !string.IsNullOrEmpty(p.Street) && !string.IsNullOrEmpty(p.City))
+                .Where(p => !(p.Street == "Teststraße 1" && p.City == "Krefeld"))
                 .ToListAsync(stoppingToken);
 
             foreach (var pharmacy in pharmaciesToGeocode)
@@ -86,6 +87,7 @@ namespace ServiceApotheke.API.Services.Workers
             var pharmacistsToGeocode = await dbContext.Pharmacists
                 .Where(p => p.Latitude == null || p.Longitude == null)
                 .Where(p => !string.IsNullOrEmpty(p.Street) && !string.IsNullOrEmpty(p.City))
+                .Where(p => !(p.Street == "Teststraße 1" && p.City == "Krefeld"))
                 .ToListAsync(stoppingToken);
 
             foreach (var pharmacist in pharmacistsToGeocode)

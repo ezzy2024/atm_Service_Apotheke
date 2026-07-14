@@ -1,6 +1,0 @@
-{
-  "name": "Service Apotheke aTM",
-  "description": "B2B SaaS web application for German pharmacies to manage Assistierte Telemedizin (aTM)",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

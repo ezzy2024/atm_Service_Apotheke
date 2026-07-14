@@ -124,6 +124,7 @@ namespace ServiceApotheke.API.Data
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<MobileRefreshToken> MobileRefreshTokens { get; set; }
         public DbSet<DeviceToken> DeviceTokens { get; set; }
+        public DbSet<PharmacyRegistry> PharmacyRegistries { get; set; }
 
         public DbSet<KioskTerminal> KioskTerminals { get; set; }
         public DbSet<ConsentAgreement> ConsentAgreements { get; set; }
@@ -214,6 +215,7 @@ namespace ServiceApotheke.API.Data
             if (Database.IsRelational())
             {
                 modelBuilder.Entity<Pharmacist>().Property(p => p.IsKycVerified).HasConversion(v => v ? 1 : 0, v => v == 1);
+                modelBuilder.Entity<Pharmacist>().Property(p => p.IsApprobationVerified).HasConversion(v => v ? 1 : 0, v => v == 1);
                 modelBuilder.Entity<Pharmacist>().Property(p => p.GdprAnonymizedAt).HasConversion(v => v.HasValue ? v.Value.ToString("O") : null, v => string.IsNullOrEmpty(v) ? (DateTime?)null : DateTime.Parse(v));
                 modelBuilder.Entity<Pharmacist>().Property(p => p.TermsAcceptedAt).HasConversion(v => v.HasValue ? v.Value.ToString("O") : null, v => string.IsNullOrEmpty(v) ? (DateTime?)null : DateTime.Parse(v));
                 modelBuilder.Entity<Pharmacy>().Property(p => p.DataProcessingAgreementSignedAt).HasConversion(v => v.HasValue ? v.Value.ToString("O") : null, v => string.IsNullOrEmpty(v) ? (DateTime?)null : DateTime.Parse(v));

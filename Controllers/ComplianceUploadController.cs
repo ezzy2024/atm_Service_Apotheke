@@ -17,16 +17,16 @@ namespace ServiceApotheke.API.Controllers
     {
         private readonly DataContext _dbContext;
         private readonly IFileSanitizationService _sanitizer;
-        private readonly ICryptographicStorageService _cryptoStorage;
+        private readonly IGoogleCloudStorageService _storageService;
 
         public ComplianceUploadController(
             DataContext dbContext, 
             IFileSanitizationService sanitizer, 
-            ICryptographicStorageService cryptoStorage)
+            IGoogleCloudStorageService storageService)
         {
             _dbContext = dbContext;
             _sanitizer = sanitizer;
-            _cryptoStorage = cryptoStorage;
+            _storageService = storageService;
         }
 
         [HttpPost("approbation")]
@@ -47,7 +47,7 @@ namespace ServiceApotheke.API.Controllers
 
             // 3. Cryptographic Storage Pipeline
             using var stream = file.OpenReadStream();
-            var locatorPath = await _cryptoStorage.EncryptAndStoreAsync(stream, file.FileName, ct);
+            var locatorPath = await _storageService.UploadDocumentAsync(stream, file.FileName, file.ContentType, ct);
 
             // 4. State Mutation
             pharmacist.ApprobationDocumentPath = locatorPath;
@@ -58,8 +58,8 @@ namespace ServiceApotheke.API.Controllers
             return Ok(new { message = "Approbationsurkunde securely uploaded and encrypted. Pending administrative verification." });
         }
 
-        [HttpPost("aug-contract")]
-        public async Task<IActionResult> UploadAugContract(IFormFile file, CancellationToken ct)
+        [HttpPost("freelance-contract")]
+        public async Task<IActionResult> UploadFreelanceContract(IFormFile file, CancellationToken ct)
         {
             var roleClaim = User.FindFirstValue(ClaimTypes.Role);
             var idClaim = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -69,21 +69,21 @@ namespace ServiceApotheke.API.Controllers
                 return BadRequest(new { message = "Invalid file payload. Must be a valid PDF, JPG, or PNG under 5MB." });
 
             using var stream = file.OpenReadStream();
-            var locatorPath = await _cryptoStorage.EncryptAndStoreAsync(stream, file.FileName, ct);
+            var locatorPath = await _storageService.UploadDocumentAsync(stream, file.FileName, file.ContentType, ct);
 
             if (roleClaim == "Pharmacist")
             {
                 var pharmacist = await _dbContext.Pharmacists.FindAsync(new object[] { entityId }, ct);
                 if (pharmacist == null) return NotFound(new { message = "Pharmacist not found." });
-                pharmacist.AugContractDocumentPath = locatorPath;
-                pharmacist.AugContractStatus = "Pending";
+                pharmacist.FreelanceContractDocumentPath = locatorPath;
+                pharmacist.FreelanceContractStatus = "Pending";
             }
             else if (roleClaim == "Pharmacy")
             {
                 var pharmacy = await _dbContext.Pharmacies.FindAsync(new object[] { entityId }, ct);
                 if (pharmacy == null) return NotFound(new { message = "Pharmacy not found." });
-                pharmacy.AugContractDocumentPath = locatorPath;
-                pharmacy.AugContractStatus = "Pending";
+                pharmacy.FreelanceContractDocumentPath = locatorPath;
+                pharmacy.FreelanceContractStatus = "Pending";
             }
             else
             {
@@ -91,7 +91,7 @@ namespace ServiceApotheke.API.Controllers
             }
 
             await _dbContext.SaveChangesAsync(ct);
-            return Ok(new { message = "AÜG contract securely uploaded and encrypted. Pending administrative verification." });
+            return Ok(new { message = "Freelance contract securely uploaded and encrypted. Pending administrative verification." });
         }
 
         [HttpPost("telepharmacy-consent")]
@@ -110,7 +110,7 @@ namespace ServiceApotheke.API.Controllers
                 return BadRequest(new { message = "Invalid file payload. Must be a valid PDF, JPG, or PNG under 5MB." });
 
             using var stream = file.OpenReadStream();
-            var locatorPath = await _cryptoStorage.EncryptAndStoreAsync(stream, file.FileName, ct);
+            var locatorPath = await _storageService.UploadDocumentAsync(stream, file.FileName, file.ContentType, ct);
 
             pharmacy.TelepharmacyConsentDocumentPath = locatorPath;
             pharmacy.IsTelepharmacyConsentGranted = false; // Requires admin verification

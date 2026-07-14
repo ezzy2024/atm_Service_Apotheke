@@ -21,5 +21,8 @@ namespace ServiceApotheke.API.Models
         
         public string? DisputeReason { get; set; }
         public DateTime? DisputedAt { get; set; }
+        
+        public string? TimesheetPath { get; set; }
+        public string? DigitalSignatureHash { get; set; }
     }
 }

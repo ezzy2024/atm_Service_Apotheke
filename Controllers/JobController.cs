@@ -132,15 +132,12 @@ namespace ServiceApotheke.API.Controllers
             if (pharmacist == null)
                 return NotFound(new { message = "Apotheker-Profil nicht gefunden." });
 
-            // Temporarily disabled KYC check for testing
-            /*
-            if (!pharmacist.IsKycVerified)
+            if (pharmacist.Status != VerificationStatus.Verified)
             {
                 return StatusCode(403, new { 
-                    message = "Aktion verweigert: Ihr Profil ist noch nicht verifiziert. Gemäß AÜG-Vorgaben müssen Approbationsurkunde, Personalausweis und Berufshaftpflichtversicherung zwingend im Compliance Profil hochgeladen und vom Support bestätigt werden, bevor Sie Mandate anfragen können." 
+                    message = "Aktion verweigert: Ihr Profil ist noch nicht verifiziert. Gemäß den Vorgaben müssen Approbationsurkunde und relevante Dokumente im Compliance Profil hochgeladen und vom Support bestätigt werden, bevor Sie sich bewerben können." 
                 });
             }
-            */
 
             // 2. Prevent Duplicate Applications
             if (await _context.JobApplications.AnyAsync(a => a.JobPostId == application.JobPostId && a.PharmacistId == application.PharmacistId))

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiceApotheke.API.Data;
+using ServiceApotheke.API.Models;
 using ServiceApotheke.API.Services;
 
 namespace ServiceApotheke.API.Controllers
@@ -77,11 +78,11 @@ namespace ServiceApotheke.API.Controllers
             }
 
             // Compliance Gating (Pre-Filtration)
-            if (!pharmacist.IsApprobationVerified || pharmacist.AugContractStatus != "Active")
+            if (pharmacist.Status != VerificationStatus.Verified || !pharmacist.IsApprobationVerified || pharmacist.FreelanceContractStatus != "Active")
             {
                 return StatusCode(403, new { 
                     code = "COMPLIANCE_LOCK", 
-                    message = "Pharmacist must have verified Approbation and an Active AÜG contract to view shifts." 
+                    message = "Pharmacist must have verified Approbation, an Active Freelance contract, and Verified Status to view shifts." 
                 });
             }
 

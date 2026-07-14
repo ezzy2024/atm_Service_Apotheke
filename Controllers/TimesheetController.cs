@@ -17,11 +17,16 @@ namespace ServiceApotheke.API.Controllers
     public class TimesheetController : ControllerBase
     {
         private readonly DataContext _context;
+        private readonly IPdfGenerationService _pdfGenerationService;
+        private readonly ICryptographicStorageService _cryptoStorageService;
+        private readonly IPaymentService _paymentService;
 
-        public TimesheetController(DataContext context)
+        public TimesheetController(DataContext context, IPdfGenerationService pdfGenerationService, ICryptographicStorageService cryptoStorageService, IPaymentService paymentService)
         {
             _context = context;
-            QuestPDF.Settings.License = LicenseType.Community;
+            _pdfGenerationService = pdfGenerationService;
+            _cryptoStorageService = cryptoStorageService;
+            _paymentService = paymentService;
         }
 
         [HttpGet("pending/pharmacy/{pharmacyId}")]
@@ -191,6 +196,70 @@ namespace ServiceApotheke.API.Controllers
             var timesheet = await _context.Timesheets.FindAsync(timesheetId);
             if (timesheet == null) return NotFound();
             return Ok(timesheet);
+        }
+
+        [HttpPost("{id}/finalize")]
+        public async Task<IActionResult> FinalizeTimesheet(int id)
+        {
+            var timesheet = await _context.Timesheets
+                .Include(t => t.JobApplication!)
+                    .ThenInclude(ja => ja.Pharmacist)
+                .Include(t => t.JobApplication!)
+                    .ThenInclude(ja => ja.JobPost!)
+                        .ThenInclude(jp => jp.Pharmacy)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+            if (timesheet == null) return NotFound(new { message = "Timesheet nicht gefunden." });
+            if (timesheet.Status == "Disputed") return BadRequest(new { message = "Konfliktbehaftete Stundenzettel können nicht finalisiert werden." });
+
+            var shift = await _context.InternalShifts
+                .Include(s => s.Pharmacy)
+                .Include(s => s.Employee)
+                .FirstOrDefaultAsync(s => s.Date.Date == timesheet.ActualStartDate.Date && s.PharmacyId == timesheet.JobApplication!.JobPost!.PharmacyId);
+            
+            if (shift == null) 
+            {
+                // Fallback shift model for PDF generation if not linked to an internal shift
+                shift = new InternalShift
+                {
+                    Pharmacy = timesheet.JobApplication!.JobPost!.Pharmacy,
+                    Employee = new PharmacyEmployee { FirstName = timesheet.JobApplication!.Pharmacist!.FullName, LastName = "" }
+                };
+            }
+
+            var (pdfBytes, documentHash) = await _pdfGenerationService.GenerateTimesheetAsync(timesheet, shift);
+            
+            using var stream = new MemoryStream(pdfBytes);
+            var locatorFileName = await _cryptoStorageService.EncryptAndStoreAsync(stream, $"Timesheet_{id}.pdf");
+
+            timesheet.TimesheetPath = locatorFileName;
+            timesheet.DigitalSignatureHash = documentHash;
+            timesheet.Status = "Approved";
+
+            // Execute Escrow Release
+            try
+            {
+                if (shift.EscrowStatus == "Held" || shift.EscrowStatus == "Pending")
+                {
+                    var transfer = await _paymentService.ReleaseEscrowAsync(shift, timesheet);
+                    shift.StripeTransferId = transfer.Id;
+                    shift.EscrowStatus = "Released";
+                }
+            }
+            catch (Exception ex)
+            {
+                // In production, log this and potentially push to a retry queue or alert Admin
+                shift.EscrowStatus = "Failed";
+                Console.WriteLine($"[Escrow Release Failed] Shift {shift.Id}: {ex.Message}");
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { 
+                message = "Timesheet successfully finalized and securely stored.", 
+                path = locatorFileName,
+                hash = documentHash
+            });
         }
 
         [HttpGet("{applicationId}/download")]

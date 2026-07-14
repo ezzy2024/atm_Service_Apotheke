@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
@@ -17,9 +19,13 @@ namespace ServiceApotheke.API.Models
 
         [JsonIgnore]
         public string PasswordHash { get; set; } = string.Empty;
+        public int SessionVersion { get; set; } = 1;
 
         [Phone]
         public string PhoneNumber { get; set; } = string.Empty;
+
+        // Stripe Connect Account
+        public string? StripeConnectAccountId { get; set; }
 
         public string Street { get; set; } = string.Empty;
         public string HouseNumber { get; set; } = string.Empty;
@@ -31,11 +37,15 @@ namespace ServiceApotheke.API.Models
         // Status-Felder
         public bool IsEmailConfirmed { get; set; } = false;
         public string? EmailConfirmationToken { get; set; }
+        public DateTime? EmailConfirmationTokenExpiry { get; set; }
         public bool IsVerified { get; set; } = false;
         public bool IsApprobationVerified { get; set; } = false;
-        public string AugContractStatus { get; set; } = "Pending"; // Pending, Active, Expired
+        public string FreelanceContractStatus { get; set; } = "Pending"; // Pending, Active, Expired
         public string UstIdValidationStatus { get; set; } = "Pending"; // Pending, Valid, Invalid
-
+        
+        public string? ApprobationNumber { get; set; }
+        public bool IsFreelancerConfirmed { get; set; }
+        public VerificationStatus Status { get; set; } = VerificationStatus.Unverified;
 
         // Beruflich / Profil
         public string? PreferredContactMethod { get; set; }
@@ -46,7 +56,7 @@ namespace ServiceApotheke.API.Models
         public string? SoftwareExperience { get; set; }
         public string Qualification { get; set; } = "Approbation";
         public string WwsProficiency { get; set; } = "";
-        public int RadiusKm { get; set; } = 20; // Hier als int für korrekte Logik
+        public int RadiusKm { get; set; } = 20; // Hier als int fÃ¼r korrekte Logik
         public string? PreferredStates { get; set; }
         public string? TravelWillingness { get; set; }
         public string? Mobility { get; set; }
@@ -65,11 +75,11 @@ namespace ServiceApotheke.API.Models
 
         // Dateipfade
         public string? ApprobationDocumentPath { get; set; }
-        public string? AugContractDocumentPath { get; set; }
+        public string? FreelanceContractDocumentPath { get; set; }
         public string? CvDocumentPath { get; set; }
         public string? ProfilePicturePath { get; set; }
 
-        // KYC & AÜG Compliance
+        // KYC & Freelancer Compliance
         public bool IsKycVerified { get; set; } = false;
         public string? IdCardDocumentPath { get; set; }
         public string? LiabilityInsuranceDocumentPath { get; set; }

@@ -23,21 +23,22 @@ namespace ServiceApotheke.API.Controllers
         private readonly EmailService _emailService;
         private readonly IGeocodingService _geocodingService;
         private readonly IWebHostEnvironment _env;
+        private readonly ICryptographicStorageService _cryptoStorageService;
 
-        public PharmacyController(DataContext context, EmailService emailService, IGeocodingService geocodingService, IWebHostEnvironment env)
+        public PharmacyController(DataContext context, EmailService emailService, IGeocodingService geocodingService, IWebHostEnvironment env, ICryptographicStorageService cryptoStorageService)
         {
             _context = context;
             _emailService = emailService;
             _geocodingService = geocodingService;
             _env = env;
+            _cryptoStorageService = cryptoStorageService;
         }
 
         [AllowAnonymous]
         [HttpPost("register")]
         [EnableRateLimiting("AuthLimiter")]
-        [ValidateAntiForgeryToken]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> Register([FromForm] PharmacyRegDto registration, IFormFile? documentFile)
+        public async Task<IActionResult> Register([FromForm] PharmacyRegDto registration)
         {
             if (await _context.Pharmacies.AnyAsync(p => p.Email == registration.Email))
                 return BadRequest(new { message = "Diese E-Mail-Adresse ist bereits registriert." });
@@ -61,7 +62,8 @@ namespace ServiceApotheke.API.Controllers
                 Longitude = coords?.Longitude,
                 LicenseNumber = registration.LicenseNumber ?? "",
                 EmailConfirmationToken = token,
-                IsEmailConfirmed = true,
+                EmailConfirmationTokenExpiry = DateTime.UtcNow.AddHours(24),
+                IsEmailConfirmed = false,
                 
                 // CRITICAL FIX: Explicitly set required default values to prevent constraint violations
                 IsVerified = false,
@@ -86,20 +88,12 @@ namespace ServiceApotheke.API.Controllers
                 await _context.SaveChangesAsync();
 
                 // Process Document File Upload after DB Save (to get ID)
-                if (documentFile != null)
+                if (registration.DocumentFile != null)
                 {
-                    var webRoot = Path.Combine(Path.GetTempPath(), "ServiceApothekeUploads", "pharmacy");
-                    var uploadPath = Path.Combine(webRoot, "uploads", pharmacy.Id.ToString());
-
-                    if (!Directory.Exists(uploadPath))
-                        Directory.CreateDirectory(uploadPath);
-
-                    var docPath = Path.Combine(uploadPath, "license_" + documentFile.FileName);
-                    using (var stream = new FileStream(docPath, FileMode.Create))
-                    {
-                        await documentFile.CopyToAsync(stream);
-                    }
-                    // Optionally save path back to pharmacy if there is a field for it
+                    using var stream = registration.DocumentFile.OpenReadStream();
+                    var locator = await _cryptoStorageService.EncryptAndStoreAsync(stream, registration.DocumentFile.FileName);
+                    pharmacy.FreelanceContractDocumentPath = locator; // Using existing field or add new
+                    await _context.SaveChangesAsync();
                 }
             }
             catch (DbUpdateException ex)
@@ -128,7 +122,8 @@ namespace ServiceApotheke.API.Controllers
                 {
                     new Claim("id", pharmacy.Id.ToString()),
                     new Claim(ClaimTypes.Email, pharmacy.Email),
-                    new Claim(ClaimTypes.Role, "Pharmacy")
+                    new Claim(ClaimTypes.Role, "Pharmacy"),
+                    new Claim("SessionVersion", pharmacy.SessionVersion.ToString())
                 }),
                 Expires = DateTime.UtcNow.AddHours(2),
                 Issuer = "ServiceApotheke.API",
@@ -155,7 +150,7 @@ namespace ServiceApotheke.API.Controllers
         public async Task<IActionResult> ConfirmEmail([FromBody] EmailConfirmDto model)
         {
             var pharmacy = await _context.Pharmacies.SingleOrDefaultAsync(u => u.Email == model.Email);
-            if (pharmacy == null || pharmacy.EmailConfirmationToken != model.Token) 
+            if (pharmacy == null || pharmacy.EmailConfirmationToken != model.Token || pharmacy.EmailConfirmationTokenExpiry < DateTime.UtcNow) 
                 return BadRequest("Code ungültig oder abgelaufen.");
             
             pharmacy.IsEmailConfirmed = true;
@@ -167,7 +162,6 @@ namespace ServiceApotheke.API.Controllers
         [AllowAnonymous]
         [HttpPost("login")]
         [EnableRateLimiting("AuthLimiter")]
-        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login([FromBody] LoginDto login)
         {
             var pharmacy = await _context.Pharmacies.SingleOrDefaultAsync(p => p.Email == login.Email);
@@ -187,7 +181,8 @@ namespace ServiceApotheke.API.Controllers
                 {
                     new Claim("id", pharmacy.Id.ToString()),
                     new Claim(ClaimTypes.Email, pharmacy.Email),
-                    new Claim(ClaimTypes.Role, "Pharmacy")
+                    new Claim(ClaimTypes.Role, "Pharmacy"),
+                    new Claim("SessionVersion", pharmacy.SessionVersion.ToString())
                 }),
                 Expires = DateTime.UtcNow.AddHours(2),
                 Issuer = "ServiceApotheke.API",
@@ -217,6 +212,43 @@ namespace ServiceApotheke.API.Controllers
             
             pharmacy.PasswordHash = string.Empty; 
             return Ok(pharmacy);
+        }
+
+        [AllowAnonymous]
+        [HttpPost("forgot-password")]
+        [EnableRateLimiting("AuthLimiter")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
+        {
+            var pharmacy = await _context.Pharmacies.SingleOrDefaultAsync(p => p.Email == dto.Email);
+            if (pharmacy == null) return Ok(new { message = "Falls diese E-Mail existiert, wurde ein Link versendet." });
+
+            string token = new Random().Next(100000, 999999).ToString();
+            pharmacy.EmailConfirmationToken = token;
+            pharmacy.EmailConfirmationTokenExpiry = DateTime.UtcNow.AddHours(1);
+            await _context.SaveChangesAsync();
+
+            string subject = "Passwort zurücksetzen (ServiceApotheke)";
+            string message = $"Ihr Code zum Zurücksetzen des Passworts lautet: {token}\nDieser Code ist 1 Stunde gültig.";
+            await _emailService.SendEmailAsync(pharmacy.Email, subject, message);
+
+            return Ok(new { message = "Falls diese E-Mail existiert, wurde ein Link versendet." });
+        }
+
+        [AllowAnonymous]
+        [HttpPost("reset-password")]
+        [EnableRateLimiting("AuthLimiter")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+        {
+            var pharmacy = await _context.Pharmacies.SingleOrDefaultAsync(p => p.Email == dto.Email);
+            if (pharmacy == null || pharmacy.EmailConfirmationToken != dto.Token || pharmacy.EmailConfirmationTokenExpiry < DateTime.UtcNow)
+                return BadRequest("Code ungültig oder abgelaufen.");
+
+            pharmacy.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+            pharmacy.SessionVersion++; // Invalidate active sessions
+            pharmacy.EmailConfirmationToken = null;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Passwort erfolgreich zurückgesetzt. Sie können sich nun anmelden." });
         }
 
         [HttpPut("{id}")]
@@ -321,5 +353,8 @@ namespace ServiceApotheke.API.Controllers
         public string? UtmMedium { get; set; }
         public string? UtmCampaign { get; set; }
         public string? UtmTerm { get; set; }
+        public IFormFile? DocumentFile { get; set; }
     }
+
+
 }

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using ServiceApotheke.API.Models.ATM;
@@ -13,6 +15,7 @@ namespace ServiceApotheke.API.Models
         public string PharmacyName { get; set; } = string.Empty;
         [Required] public string Email { get; set; } = string.Empty;
         [Required] public string PasswordHash { get; set; } = string.Empty;
+        public int SessionVersion { get; set; } = 1;
         [Required] public string PhoneNumber { get; set; } = string.Empty;
         public string Street { get; set; } = string.Empty;
         public string HouseNumber { get; set; } = string.Empty;
@@ -23,11 +26,19 @@ namespace ServiceApotheke.API.Models
         public string LicenseNumber { get; set; } = string.Empty;
 
         public bool IsEmailConfirmed { get; set; }
+
+        // Stripe Subscription
+        public string? StripeCustomerId { get; set; }
+        public string SubscriptionTier { get; set; } = "Free"; // Free, Pro, Enterprise
         public string? EmailConfirmationToken { get; set; }
+        public DateTime? EmailConfirmationTokenExpiry { get; set; }
+        
         public bool IsVerified { get; set; } = false;
-        public string AugContractStatus { get; set; } = "Pending"; // Pending, Active, Expired
+        public string FreelanceContractStatus { get; set; } = "Pending"; // Pending, Active, Expired
         public string UstIdValidationStatus { get; set; } = "Pending"; // Pending, Valid, Invalid
         public string? UstIdNr { get; set; }
+        public string? BetriebserlaubnisNumber { get; set; }
+        public VerificationStatus Status { get; set; } = VerificationStatus.Unverified;
         
         [MaxLength(100)]
         public string? ApiKey { get; set; }
@@ -45,7 +56,7 @@ namespace ServiceApotheke.API.Models
         // GDPR & B2B Compliance
         public DateTime? DataProcessingAgreementSignedAt { get; set; }
         public DateTime? GdprAnonymizedAt { get; set; }
-        public string? AugContractDocumentPath { get; set; }
+        public string? FreelanceContractDocumentPath { get; set; }
         public bool IsTelepharmacyConsentGranted { get; set; } = false;
         public string? TelepharmacyConsentDocumentPath { get; set; }
 

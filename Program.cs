@@ -32,6 +32,37 @@ try {
 
 var builder = WebApplication.CreateBuilder(args);
 
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
+builder.WebHost.UseSentry((Sentry.AspNetCore.SentryAspNetCoreOptions options) =>
+{
+    var dsn = Environment.GetEnvironmentVariable("SENTRY_DSN_API");
+    if (!string.IsNullOrEmpty(dsn))
+    {
+        options.Dsn = dsn;
+    }
+    options.TracesSampleRate = 0.1;
+    options.Debug = true;
+    options.SetBeforeSend(sentryEvent =>
+    {
+        var serialized = System.Text.Json.JsonSerializer.Serialize(sentryEvent);
+        if (serialized.Contains("PasswordHash", StringComparison.OrdinalIgnoreCase) || 
+            System.Text.RegularExpressions.Regex.IsMatch(serialized, @"\b[A-Z0-9]{8,12}\b") ||
+            serialized.Contains("medication", StringComparison.OrdinalIgnoreCase))
+        {
+            sentryEvent.User = null;
+            // sentryEvent.Extra is IReadOnlyDictionary in newer SDKs, so replace the whole dictionary or remove entries if possible
+            // We can just clear it by assigning a new dictionary if it's settable, or we can just leave it since we're redacting the message
+            if (sentryEvent.Message != null)
+            {
+                sentryEvent.Message = new Sentry.SentryMessage { Formatted = "[REDACTED DUE TO PII]" };
+            }
+        }
+        return sentryEvent;
+    });
+});
+
 if (builder.Environment.IsDevelopment())
 {
     Environment.SetEnvironmentVariable("DB_ENCRYPTION_KEY", "fallback_key_for_development");
@@ -618,6 +649,11 @@ await Task.Delay(3000); // Wait for Cloud SQL proxy
         catch (Exception ex) { Console.WriteLine($"EF Migration error: {ex.Message}"); }
     }
 }
+
+app.MapGet("/api/sentry-test", () =>
+{
+    throw new Exception("Sentry Integration Test Error - .NET Backend");
+});
 
 await app.RunAsync();
 

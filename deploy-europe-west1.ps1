@@ -5,18 +5,10 @@ $REGION = "europe-west1"
 $IMAGE_TAG = "europe-west3-docker.pkg.dev/$PROJECT_ID/serviceapotheke-repo/api:latest"
 $DB_INSTANCE = "$PROJECT_ID:europe-west3:serviceapotheke-db-2"
 
-Write-Host "Building Docker Image..."
-docker build -t $IMAGE_TAG .
-
-Write-Host "Pushing Docker Image..."
-docker push $IMAGE_TAG
+Write-Host "Submitting build to Cloud Build..."
+gcloud builds submit --tag $IMAGE_TAG .
 
 Write-Host "Deploying to Cloud Run..."
-gcloud run deploy serviceapotheke-api `
-    --region $REGION `
-    --image $IMAGE_TAG `
-    --update-env-vars ConnectionStrings__DefaultConnection="Host=/cloudsql/$DB_INSTANCE;Database=serviceapotheke-db;Username=appuser;Password=ServiceApotheke2026Strong" `
-    --set-cloudsql-instances $DB_INSTANCE `
-    --quiet
+gcloud run deploy serviceapotheke-api --region $REGION --image $IMAGE_TAG --update-env-vars "ConnectionStrings__DefaultConnection=Host=/cloudsql/$DB_INSTANCE;Database=serviceapotheke-db;Username=appuser;Password=ServiceApotheke2026Strong" --set-cloudsql-instances $DB_INSTANCE --quiet
 
 Write-Host "Deployment Complete."

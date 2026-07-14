@@ -12,17 +12,16 @@ namespace ServiceApotheke.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    // [Authorize(Roles = "Admin,Backoffice")] // Simplified for demo/testing, assume strict role in prod
-    [Authorize]
+    [Authorize(Roles = "admin")]
     public class ComplianceAdminController : ControllerBase
     {
         private readonly DataContext _dbContext;
-        private readonly ICryptographicStorageService _cryptoStorage;
+        private readonly IGoogleCloudStorageService _storageService;
 
-        public ComplianceAdminController(DataContext dbContext, ICryptographicStorageService cryptoStorage)
+        public ComplianceAdminController(DataContext dbContext, IGoogleCloudStorageService storageService)
         {
             _dbContext = dbContext;
-            _cryptoStorage = cryptoStorage;
+            _storageService = storageService;
         }
 
         [HttpGet("approbation/{pharmacistId}")]
@@ -36,20 +35,20 @@ namespace ServiceApotheke.API.Controllers
 
             try
             {
-                var decryptedBytes = await _cryptoStorage.RetrieveAndDecryptAsync(pharmacist.ApprobationDocumentPath, ct);
+                var stream = await _storageService.DownloadDocumentAsync(pharmacist.ApprobationDocumentPath, ct);
                 
-                var ext = Path.GetExtension(pharmacist.ApprobationDocumentPath).Replace(".enc", "");
-                var mimeType = ext == ".pdf" ? "application/pdf" : "image/jpeg";
+                var ext = Path.GetExtension(pharmacist.ApprobationDocumentPath);
+                var mimeType = ext == ".pdf" ? "application/pdf" : "image/jpeg"; // Simplified mime check
 
-                return File(decryptedBytes, mimeType, $"Approbation_{pharmacistId}{ext}");
+                return File(stream, mimeType, $"Approbation_{pharmacistId}{ext}");
             }
-            catch (FileNotFoundException)
+            catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                return NotFound(new { message = "Encrypted blob could not be located." });
+                return NotFound(new { message = "Document could not be located in GCS." });
             }
-            catch (System.Security.Cryptography.CryptographicException)
+            catch (System.Exception ex)
             {
-                return StatusCode(500, new { message = "Cryptographic integrity failure. Ciphertext may have been tampered with." });
+                return StatusCode(500, new { message = "Error retrieving document.", details = ex.Message });
             }
         }
 
@@ -71,24 +70,24 @@ namespace ServiceApotheke.API.Controllers
             return Ok(new { message = "Approbationsurkunde verified successfully. Matching engine unlocked for this Pharmacist." });
         }
 
-        [HttpPost("verify-aug/{id}")]
-        public async Task<IActionResult> VerifyAugContract(int id, [FromQuery] string targetType, CancellationToken ct)
+        [HttpPost("verify-freelance-contract/{id}")]
+        public async Task<IActionResult> VerifyFreelanceContract(int id, [FromQuery] string targetType, CancellationToken ct)
         {
             if (targetType == "Pharmacist")
             {
                 var pharmacist = await _dbContext.Pharmacists.FindAsync(new object[] { id }, ct);
                 if (pharmacist == null) return NotFound(new { message = "Pharmacist not found." });
-                if (string.IsNullOrEmpty(pharmacist.AugContractDocumentPath)) return BadRequest(new { message = "No AÜG document uploaded." });
+                if (string.IsNullOrEmpty(pharmacist.FreelanceContractDocumentPath)) return BadRequest(new { message = "No Freelance document uploaded." });
 
-                pharmacist.AugContractStatus = "Active";
+                pharmacist.FreelanceContractStatus = "Active";
             }
             else if (targetType == "Pharmacy")
             {
                 var pharmacy = await _dbContext.Pharmacies.FindAsync(new object[] { id }, ct);
                 if (pharmacy == null) return NotFound(new { message = "Pharmacy not found." });
-                if (string.IsNullOrEmpty(pharmacy.AugContractDocumentPath)) return BadRequest(new { message = "No AÜG document uploaded." });
+                if (string.IsNullOrEmpty(pharmacy.FreelanceContractDocumentPath)) return BadRequest(new { message = "No Freelance document uploaded." });
 
-                pharmacy.AugContractStatus = "Active";
+                pharmacy.FreelanceContractStatus = "Active";
             }
             else
             {
@@ -96,7 +95,7 @@ namespace ServiceApotheke.API.Controllers
             }
 
             await _dbContext.SaveChangesAsync(ct);
-            return Ok(new { message = $"AÜG contract verified successfully for {targetType}." });
+            return Ok(new { message = $"Freelance contract verified successfully for {targetType}." });
         }
 
         [HttpPost("verify-telepharmacy/{pharmacyId}")]
@@ -115,7 +114,7 @@ namespace ServiceApotheke.API.Controllers
         }
 
         [HttpPost("sync-migrations")]
-        [Authorize] // Assume strict role in prod
+        // Assume strict role in prod
         public async Task<IActionResult> SyncMigrations(CancellationToken ct)
         {
             var migrationIds = new[]
