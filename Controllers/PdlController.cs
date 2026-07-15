@@ -1,22 +1,56 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Security.Claims;
 using ServiceApotheke.API.Services.PDL;
+using ServiceApotheke.API.Data;
+using ServiceApotheke.API.Models.PDL;
 
 namespace ServiceApotheke.API.Controllers
 {
+    public class EncryptedPayloadDto
+    {
+        public string CiphertextBase64 { get; set; } = string.Empty;
+        public string IvBase64 { get; set; } = string.Empty;
+    }
+
     [ApiController]
     [Route("api/[controller]")]
     public class PdlController : ControllerBase
     {
         private readonly IAmtsProvider _amtsProvider;
+        private readonly DataContext _context;
 
-        public PdlController(IAmtsProvider amtsProvider)
+        public PdlController(IAmtsProvider amtsProvider, DataContext context)
         {
             _amtsProvider = amtsProvider;
+            _context = context;
+        }
+
+        [Authorize]
+        [HttpPost("ingest")]
+        public async Task<IActionResult> Ingest([FromBody] List<EncryptedPayloadDto> payloads)
+        {
+            var pharmacyIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(pharmacyIdStr, out var pharmacyId)) return Unauthorized();
+
+            var patients = payloads.Select(p => new Patient
+            {
+                PharmacyId = pharmacyId,
+                CiphertextBase64 = p.CiphertextBase64,
+                IvBase64 = p.IvBase64,
+                CreatedAt = DateTime.UtcNow
+            }).ToList();
+
+            _context.Patients.AddRange(patients);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { processed = patients.Count });
         }
 
         [HttpPost("analyze")]
