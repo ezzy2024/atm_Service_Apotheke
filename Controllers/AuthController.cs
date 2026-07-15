@@ -46,5 +46,11 @@ namespace ServiceApotheke.API.Controllers
                 role
             });
         }
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            Response.Cookies.Delete("sa_auth_v2", new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.None });
+            return Ok(new { message = "Logged out successfully" });
+        }
     }
 }
