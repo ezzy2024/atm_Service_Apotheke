@@ -42,7 +42,7 @@ namespace ServiceApotheke.API.Controllers
                 return BadRequest(new { message = "Diese E-Mail-Adresse ist bereits registriert." });
 
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(registration.Password);
-            string token = registration.Email.EndsWith("@e2e.test") ? "123456" : new Random().Next(100000, 999999).ToString();
+            string token = new Random().Next(100000, 999999).ToString();
 
             var coords = await _geocodingService.GetCoordinatesAsync($"{registration.Street} {registration.HouseNumber}, {registration.PostalCode} {registration.City}, Germany");
 
@@ -178,7 +178,7 @@ namespace ServiceApotheke.API.Controllers
             var user = await _context.Pharmacists.SingleOrDefaultAsync(p => p.Email == dto.Email);
             if (user == null) return Ok(new { message = "Falls diese E-Mail existiert, wurde ein Link versendet." });
 
-            string token = dto.Email.EndsWith("@e2e.test") ? "123456" : new Random().Next(100000, 999999).ToString();
+            string token = new Random().Next(100000, 999999).ToString();
             user.EmailConfirmationToken = token;
             user.EmailConfirmationTokenExpiry = DateTime.UtcNow.AddHours(1);
             await _context.SaveChangesAsync();
