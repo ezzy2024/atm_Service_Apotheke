@@ -28,10 +28,10 @@ namespace ServiceApotheke.API.Controllers
             // Since we may run on SQLite locally or Postgres in prod, EF.Functions.Like works cross-platform.
             // For Postgres specifically, Npgsql supports EF.Functions.ILike. 
             // We use Like with lowered inputs to simulate ILIKE across DBs if needed.
-            var searchPattern = $"%{query}%";
+            var lowerQuery = query.ToLower();
 
             var results = await _context.PharmacyRegistries
-                .Where(p => EF.Functions.Like(p.Name, searchPattern) || EF.Functions.Like(p.PLZ, searchPattern))
+                .Where(p => p.Name.ToLower().Contains(lowerQuery) || p.PLZ.Contains(lowerQuery))
                 .Take(10)
                 .Select(p => new
                 {
