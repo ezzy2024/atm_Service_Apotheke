@@ -135,23 +135,6 @@ namespace ServiceApotheke.API.Controllers.PDL
             
             return Ok(new { success = true, serviceId = service.Id });
         }
-
-        [AllowAnonymous]
-        [HttpDelete("test-cleanup")]
-        public async Task<IActionResult> TestCleanup()
-        {
-            var patients = await _context.Patients
-                .Where(p => p.CiphertextBase64 == "dGVzdF9jaXBoZXI=")
-                .ToListAsync();
-
-            if (patients.Any())
-            {
-                _context.Patients.RemoveRange(patients);
-                await _context.SaveChangesAsync();
-                return Ok(new { message = $"Deleted {patients.Count} test rows." });
-            }
-            return Ok(new { message = "No test rows found." });
-        }
     }
 
     public class PdlServicePayload 
