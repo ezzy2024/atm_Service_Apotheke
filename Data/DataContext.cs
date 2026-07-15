@@ -214,12 +214,6 @@ namespace ServiceApotheke.API.Data
 
             if (Database.IsRelational())
             {
-                modelBuilder.Entity<Pharmacist>().Property(p => p.IsKycVerified).HasConversion(v => v ? 1 : 0, v => v == 1);
-                modelBuilder.Entity<Pharmacist>().Property(p => p.IsApprobationVerified).HasConversion(v => v ? 1 : 0, v => v == 1);
-                modelBuilder.Entity<Pharmacist>().Property(p => p.GdprAnonymizedAt).HasConversion(v => v.HasValue ? v.Value.ToString("O") : null, v => string.IsNullOrEmpty(v) ? (DateTime?)null : DateTime.Parse(v));
-                modelBuilder.Entity<Pharmacist>().Property(p => p.TermsAcceptedAt).HasConversion(v => v.HasValue ? v.Value.ToString("O") : null, v => string.IsNullOrEmpty(v) ? (DateTime?)null : DateTime.Parse(v));
-                modelBuilder.Entity<Pharmacy>().Property(p => p.DataProcessingAgreementSignedAt).HasConversion(v => v.HasValue ? v.Value.ToString("O") : null, v => string.IsNullOrEmpty(v) ? (DateTime?)null : DateTime.Parse(v));
-                modelBuilder.Entity<Pharmacy>().Property(p => p.GdprAnonymizedAt).HasConversion(v => v.HasValue ? v.Value.ToString("O") : null, v => string.IsNullOrEmpty(v) ? (DateTime?)null : DateTime.Parse(v));
             }
 
             // Seed German Federal Holidays (Static Seeding per User Directive)
