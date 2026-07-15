@@ -9,9 +9,8 @@ namespace ServiceApotheke.API.Data
         {
             var optionsBuilder = new DbContextOptionsBuilder<DataContext>();
             
-            // Nutzen Sie SQLite nur, wenn Sie offline Migrationen erstellen
-            // Ansonsten sollte hier eine Verbindung zu einer lokalen Test-DB stehen
-            optionsBuilder.UseSqlite("Data Source=design-time.db");
+            // Use Postgres locally
+            optionsBuilder.UseNpgsql("Host=localhost;Database=dummy;Username=test;Password=test");
 
             return new DataContext(optionsBuilder.Options);
         }
