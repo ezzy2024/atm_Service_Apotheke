@@ -186,14 +186,17 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ServiceApotheke.API.Data.DataContext>();
-    try
+    if (app.Environment.EnvironmentName != "Testing")
     {
-        Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.Migrate(db.Database);
-        Console.WriteLine("[EF Core] Production database migrations applied successfully.");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"[EF Core] Fatal error applying migrations: {ex.Message}");
+        try
+        {
+            Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.Migrate(db.Database);
+            Console.WriteLine("[EF Core] Production database migrations applied successfully.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EF Core] Fatal error applying migrations: {ex.Message}");
+        }
     }
 }
 
