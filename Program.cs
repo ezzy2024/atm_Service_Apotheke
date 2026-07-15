@@ -47,7 +47,7 @@ builder.WebHost.UseSentry((Sentry.AspNetCore.SentryAspNetCoreOptions options) =>
         options.Dsn = "https://d74e4f55f0ffd194f5dbb97bade9d9a9@o4511604042891264.ingest.de.sentry.io/4511735319953488";
     }
     options.TracesSampleRate = 0.1;
-    options.Debug = true;
+    options.Debug = false;
     options.SetBeforeSend(sentryEvent =>
     {
         var serialized = System.Text.Json.JsonSerializer.Serialize(sentryEvent);
@@ -255,9 +255,9 @@ app.MapControllers();
 
 
 
-app.MapGet("/api/sentry-test", () =>
+app.MapGet("/api/health", () =>
 {
-    throw new Exception("Sentry Integration Test Error - .NET Backend");
+    return Results.Ok(new { status = "healthy" });
 });
 
 await app.RunAsync();
