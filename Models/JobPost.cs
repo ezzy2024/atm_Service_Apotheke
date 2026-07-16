@@ -27,5 +27,8 @@ namespace ServiceApotheke.API.Models
         // --- Relationships ---
         public virtual Pharmacy? Pharmacy { get; set; }
         public virtual ICollection<JobApplication> JobApplications { get; set; } = new List<JobApplication>();
+        
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public bool HasApplied { get; set; } = false;
     }
 }

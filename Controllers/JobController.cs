@@ -26,9 +26,20 @@ namespace ServiceApotheke.API.Controllers
         {
             var jobs = await _context.JobPosts
                 .Include(j => j.Pharmacy)
+                .Include(j => j.JobApplications)
                 .Where(j => j.Status == "Active")
                 .OrderByDescending(j => j.CreatedAt)
                 .ToListAsync();
+
+            var userIdClaim = User.FindFirst("id")?.Value;
+            if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out int pid))
+            {
+                foreach (var job in jobs)
+                {
+                    job.HasApplied = job.JobApplications.Any(a => a.PharmacistId == pid);
+                }
+            }
+
             return Ok(jobs);
         }
 
