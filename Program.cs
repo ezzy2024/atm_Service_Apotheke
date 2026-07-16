@@ -122,6 +122,8 @@ builder.Services.AddScoped<ServiceApotheke.API.Services.IHaversineDistanceServic
 builder.Services.AddScoped<ServiceApotheke.API.Services.IFileSanitizationService, ServiceApotheke.API.Services.FileSanitizationService>();
 builder.Services.AddScoped<ServiceApotheke.API.Services.ICryptographicStorageService, ServiceApotheke.API.Services.LocalEncryptedStorageProvider>();
 builder.Services.AddScoped<IMatchingService, MatchingService>();
+builder.Services.AddScoped<IPdfGenerationService, PdfGenerationService>();
+builder.Services.AddScoped<IPaymentService, StripePaymentService>();
 
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
 builder.Services.AddHttpClient<ServiceApotheke.API.Services.PDL.AiAnalysisService>();
