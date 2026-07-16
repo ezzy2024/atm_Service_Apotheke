@@ -169,6 +169,13 @@ builder.Services.AddRateLimiter(options =>
         opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         opt.QueueLimit = 0;
     });
+    options.AddFixedWindowLimiter("ContactLimiter", opt =>
+    {
+        opt.Window = TimeSpan.FromMinutes(60);
+        opt.PermitLimit = 3;
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        opt.QueueLimit = 0;
+    });
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 

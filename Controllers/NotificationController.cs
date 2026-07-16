@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ServiceApotheke.API.Data;
 using ServiceApotheke.API.Models;
 using System.Security.Claims;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ServiceApotheke.API.Controllers
 {
@@ -73,5 +74,21 @@ namespace ServiceApotheke.API.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { success = true });
         }
+
+        [AllowAnonymous]
+        [HttpPost("contact")]
+        [EnableRateLimiting("ContactLimiter")]
+        public IActionResult ContactSubmit([FromBody] ContactDto dto)
+        {
+            // In a real app, this would send an email. For MVP, we just accept it.
+            return Ok(new { success = true, message = "Vielen Dank für Ihre Nachricht." });
+        }
+    }
+
+    public class ContactDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
     }
 }
