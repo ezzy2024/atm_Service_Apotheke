@@ -45,10 +45,10 @@ namespace ServiceApotheke.API.Controllers
                     date = t.ActualStartDate,
                     startTime = t.ActualStartTime.ToString(@"hh\:mm"),
                     endTime = t.ActualEndTime.ToString(@"hh\:mm"),
-                    totalHours = (t.ActualEndTime - t.ActualStartTime).TotalHours,
+                    totalHours = (t.ActualEndTime - t.ActualStartTime).TotalHours - (t.BreaksMinutes / 60.0),
                     travelCosts = t.TravelCosts,
                     accommodationCosts = t.AccommodationCosts,
-                    totalExpected = ((decimal)(t.ActualEndTime - t.ActualStartTime).TotalHours * t.HourlyRate) + t.TravelCosts + t.AccommodationCosts,
+                    totalExpected = ((decimal)((t.ActualEndTime - t.ActualStartTime).TotalHours - (t.BreaksMinutes / 60.0)) * t.HourlyRate) + t.TravelCosts + t.AccommodationCosts,
                     status = t.Status,
                     disputeReason = t.DisputeReason
                 })

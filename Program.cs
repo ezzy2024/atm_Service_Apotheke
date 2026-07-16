@@ -87,7 +87,7 @@ builder.Services.AddDbContext<DataContext>((sp, options) => {
         options.UseNpgsql(connectionString);
     } else {
         var dbPath = Path.Combine(Path.GetTempPath(), "app.db");
-        options.UseSqlite($"Data Source={dbPath}");
+        options.UseNpgsql($"Data Source={dbPath}");
     }
 });
 
@@ -146,6 +146,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 {
                     if (context.Request.Cookies.ContainsKey("sa_auth_v2"))
                         context.Token = context.Request.Cookies["sa_auth_v2"];
+                }
+                return Task.CompletedTask;
+            },
+            OnAuthenticationFailed = context =>
+            {
+                if (context.Exception is Microsoft.IdentityModel.Tokens.SecurityTokenExpiredException)
+                {
+                    context.NoResult();
+                    context.Response.StatusCode = 401;
+                    context.Response.ContentType = "text/plain";
+                    return context.Response.WriteAsync("Token Expired");
                 }
                 return Task.CompletedTask;
             }

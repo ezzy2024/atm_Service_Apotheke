@@ -112,8 +112,8 @@ namespace ServiceApotheke.API.Controllers
                 }
 
                 // Calculate total amount
-                var totalHours = (decimal)(timesheet.ActualEndTime - timesheet.ActualStartTime).TotalHours;
-                if (totalHours < 0) totalHours += 24m;
+                var totalHours = (decimal)(timesheet.ActualEndTime - timesheet.ActualStartTime).TotalHours - (timesheet.BreaksMinutes / 60m);
+                if (totalHours < 0) totalHours += 24m; // naive wrap for overnight shifts
                 var laborCost = totalHours * timesheet.HourlyRate;
                 var platformFee = laborCost * 0.15m;
                 var totalAmount = laborCost + platformFee + timesheet.TravelCosts + timesheet.AccommodationCosts;

@@ -251,8 +251,20 @@ namespace ServiceApotheke.API.Controllers
             var apps = await _context.JobApplications
                 .Include(a => a.JobPost!)
                     .ThenInclude(jp => jp.Pharmacy!)
-                .Where(a => a.PharmacistId == id && a.Status == "Accepted" && a.JobPost != null)
+                .Where(a => a.PharmacistId == id && (a.Status == "Accepted" || a.Status == "Completed" || a.Status == "Invoiced") && a.JobPost != null)
+                .Select(a => new {
+                    Id = a.Id,
+                    Status = a.Status,
+                    JobPost = new {
+                        Title = a.JobPost!.Title,
+                        StartDate = a.JobPost.StartDate,
+                        EndDate = a.JobPost.EndDate,
+                        Salary = a.JobPost.Salary,
+                        Pharmacy = new { PharmacyName = a.JobPost.Pharmacy!.PharmacyName }
+                    }
+                })
                 .ToListAsync();
+
             return Ok(apps);
         }
 

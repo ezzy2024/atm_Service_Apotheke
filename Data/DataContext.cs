@@ -5,6 +5,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System.Security.Claims;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using ServiceApotheke.API.Models;
 using ServiceApotheke.API.Models.ATM;
 using ServiceApotheke.API.Models.PDL;
@@ -102,8 +103,9 @@ namespace ServiceApotheke.API.Data
         }
     }
 
-    public class DataContext : DbContext
+    public class DataContext : DbContext, IDataProtectionKeyContext
     {
+        public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
         private readonly Microsoft.AspNetCore.Http.IHttpContextAccessor _httpContextAccessor;
 
         public DataContext(DbContextOptions<DataContext> options, Microsoft.AspNetCore.Http.IHttpContextAccessor httpContextAccessor = null) : base(options) 

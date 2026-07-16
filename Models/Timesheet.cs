@@ -11,6 +11,7 @@ namespace ServiceApotheke.API.Models
         public DateTime ActualStartDate { get; set; }
         public TimeSpan ActualStartTime { get; set; }
         public TimeSpan ActualEndTime { get; set; }
+        public int BreaksMinutes { get; set; } = 0;
         public decimal HourlyRate { get; set; }
         
         public decimal TravelCosts { get; set; }
