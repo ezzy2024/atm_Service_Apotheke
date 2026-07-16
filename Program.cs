@@ -149,23 +149,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 }
                 return Task.CompletedTask;
             },
-            OnAuthenticationFailed = context =>
+            OnChallenge = context =>
             {
-                if (context.Exception is Microsoft.IdentityModel.Tokens.SecurityTokenExpiredException)
+                context.HandleResponse();
+                context.Response.StatusCode = 401;
+                context.Response.ContentType = "text/plain";
+                if (context.AuthenticateFailure is Microsoft.IdentityModel.Tokens.SecurityTokenExpiredException)
                 {
-                    context.NoResult();
-                    context.Response.StatusCode = 401;
-                    context.Response.ContentType = "text/plain";
                     return context.Response.WriteAsync("Token Expired");
                 }
-                return Task.CompletedTask;
+                return context.Response.WriteAsync("Unauthorized");
             }
         };
     });
 
 builder.Services.AddDataProtection()
     .SetApplicationName("ServiceApotheke")
-    .PersistKeysToFileSystem(new DirectoryInfo(@"/tmp/keys"));
+    .PersistKeysToDbContext<ServiceApotheke.API.Data.DataContext>();
 
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.DataRetentionWorker>();
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.GeocodingBackfillWorker>();
@@ -199,6 +199,14 @@ builder.Services.AddAntiforgery(options =>
 });
 
 var app = builder.Build();
+
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 // Apply EF Core Migrations Automatically on Startup
 using (var scope = app.Services.CreateScope())
@@ -258,14 +266,6 @@ app.UseExceptionHandler(c => c.Run(async context => {
 }));
 
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
-
-var forwardedHeadersOptions = new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-};
-forwardedHeadersOptions.KnownNetworks.Clear();
-forwardedHeadersOptions.KnownProxies.Clear();
-app.UseForwardedHeaders(forwardedHeadersOptions);
 
 app.UseRouting();
 app.UseCors("StrictCorsPolicy");
