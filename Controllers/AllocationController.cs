@@ -153,11 +153,40 @@ namespace ServiceApotheke.API.Controllers
                 var pharmacy = application.JobPost.Pharmacy;
                 var pharmacist = application.Pharmacist;
 
+                string formattedDetails = application.JobPost.Description ?? "";
+                try
+                {
+                    if (formattedDetails.TrimStart().StartsWith("{"))
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(formattedDetails);
+                        var root = doc.RootElement;
+                        var detailsList = new System.Collections.Generic.List<string>();
+
+                        if (root.TryGetProperty("travelExpensePerKm", out var perKm) && perKm.ValueKind == System.Text.Json.JsonValueKind.Number)
+                            detailsList.Add($"- Fahrtkosten: {perKm.GetDecimal():0.00} €/km");
+
+                        if (root.TryGetProperty("travelExpenseCap", out var cap) && cap.ValueKind == System.Text.Json.JsonValueKind.Number)
+                            detailsList.Add($"- Maximale Fahrtkosten: {cap.GetDecimal():0.00} €");
+
+                        if (root.TryGetProperty("accommodation", out var acc) && acc.ValueKind == System.Text.Json.JsonValueKind.String && !string.IsNullOrEmpty(acc.GetString()))
+                            detailsList.Add($"- Übernachtung: {acc.GetString()}");
+
+                        if (detailsList.Count > 0)
+                            formattedDetails = "\n" + string.Join("\n", detailsList);
+                        else
+                            formattedDetails = "Keine besonderen Spesendetails.";
+                    }
+                }
+                catch
+                {
+                    // Fallback to raw string if parsing fails
+                }
+
                 string pharmacistSubject = $"Schichtbestätigung: {application.JobPost.Title} bei {pharmacy.PharmacyName}";
                 string pharmacistMessage = $@"Hallo {pharmacist.FullName},
 
 Ihre Schicht bei {pharmacy.PharmacyName} wurde erfolgreich zugewiesen.
-Details: {application.JobPost.Description}
+Details: {formattedDetails}
 
 WICHTIGER HINWEIS:
 Der Einsatz erfolgt als freier Mitarbeiter (Honorarvertretung). Der Auftragnehmer wird nicht in die Betriebsstruktur eingegliedert und unterliegt keinem fachlichen Weisungsrecht. Die Abführung von Steuern und Sozialabgaben obliegt vollumfänglich dem Auftragnehmer.
