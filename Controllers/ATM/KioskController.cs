@@ -208,21 +208,23 @@ namespace ServiceApotheke.API.Controllers.ATM
                 using var command = _context.Database.GetDbConnection().CreateCommand();
                 command.CommandText = "SELECT * FROM \"ConsentAgreements\" ORDER BY \"Id\" DESC LIMIT 5;";
                 await _context.Database.OpenConnectionAsync();
-                using var reader = await command.ExecuteReaderAsync();
                 var results = new System.Collections.Generic.List<System.Collections.Generic.Dictionary<string, object>>();
-                while (await reader.ReadAsync()) {
-                    var row = new System.Collections.Generic.Dictionary<string, object>();
-                    for (int i = 0; i < reader.FieldCount; i++) {
-                        row[reader.GetName(i)] = reader.GetValue(i);
+                using (var reader = await command.ExecuteReaderAsync()) {
+                    while (await reader.ReadAsync()) {
+                        var row = new System.Collections.Generic.Dictionary<string, object>();
+                        for (int i = 0; i < reader.FieldCount; i++) {
+                            row[reader.GetName(i)] = reader.GetValue(i);
+                        }
+                        results.Add(row);
                     }
-                    results.Add(row);
                 }
                 
                 command.CommandText = "SELECT table_name, view_definition FROM information_schema.views WHERE table_name = 'ConsentAgreements';";
-                using var reader2 = await command.ExecuteReaderAsync();
                 string viewDef = null;
-                if (await reader2.ReadAsync()) {
-                    viewDef = reader2.GetString(1);
+                using (var reader2 = await command.ExecuteReaderAsync()) {
+                    if (await reader2.ReadAsync()) {
+                        viewDef = reader2.GetString(1);
+                    }
                 }
 
                 return Ok(new { Records = results, ViewDefinition = viewDef });
