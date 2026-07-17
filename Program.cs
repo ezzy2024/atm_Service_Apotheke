@@ -120,7 +120,15 @@ builder.Services.AddScoped<InvoiceService>();
 builder.Services.AddScoped<ServiceApotheke.API.Services.SaturdayRotationService>();
 builder.Services.AddScoped<ServiceApotheke.API.Services.IHaversineDistanceService, ServiceApotheke.API.Services.HaversineDistanceService>();
 builder.Services.AddScoped<ServiceApotheke.API.Services.IFileSanitizationService, ServiceApotheke.API.Services.FileSanitizationService>();
-builder.Services.AddScoped<ServiceApotheke.API.Services.ICryptographicStorageService, ServiceApotheke.API.Services.LocalEncryptedStorageProvider>();
+builder.Services.AddScoped<ServiceApotheke.API.Services.IGoogleCloudStorageService, ServiceApotheke.API.Services.GoogleCloudStorageService>();
+if (builder.Environment.IsProduction() || builder.Environment.IsStaging())
+{
+    builder.Services.AddScoped<ServiceApotheke.API.Services.ICryptographicStorageService, ServiceApotheke.API.Services.GcsEncryptedStorageProvider>();
+}
+else
+{
+    builder.Services.AddScoped<ServiceApotheke.API.Services.ICryptographicStorageService, ServiceApotheke.API.Services.LocalEncryptedStorageProvider>();
+}
 builder.Services.AddScoped<IMatchingService, MatchingService>();
 builder.Services.AddScoped<IPdfGenerationService, TimesheetPdfGenerationService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
