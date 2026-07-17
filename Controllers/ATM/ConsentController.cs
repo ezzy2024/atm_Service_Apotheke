@@ -69,27 +69,24 @@ namespace ServiceApotheke.API.Controllers.ATM
                 _context.ConsentAgreements.Add(consentAgreement);
                 await _context.SaveChangesAsync(); // To get the ConsentAgreement.Id
 
-                var billingRecord = new AtmBillingRecord
-                {
-                    PharmacyId = pharmacyId,
-                    ConsentId = consentAgreement.Id,
-                    ServiceType = "aTM-Anamnese",
-                    Amount = 15.00m, // Mock amount for MVP
-                    DateOfService = consentAgreement.SignedDate,
-                    Sonderkennzeichen = "0256789", // Mock
-                };
-
-                _context.AtmBillingRecords.Add(billingRecord);
-                await _context.SaveChangesAsync();
-
-                // 2. QuestPDF Generation
                 var fileName = $"consent_{consentAgreement.Id}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
                 var pdfBytes = GeneratePdf(request);
                 
                 using var memoryStream = new MemoryStream(pdfBytes);
                 var locator = await _storageService.UploadDocumentAsync(memoryStream, fileName, "application/pdf");
 
-                billingRecord.ReportPath = $"/api/atm/kiosk/download/{locator}";
+                var billingRecord = new AtmBillingRecord
+                {
+                    PharmacyId = pharmacyId,
+                    ConsentId = consentAgreement.Id,
+                    ServiceType = "AMTS",
+                    Amount = 15.00m,
+                    DateOfService = DateTime.UtcNow,
+                    Sonderkennzeichen = "0256789",
+                    ReportPath = $"/api/atm/kiosk/download/{locator}"
+                };
+
+                _context.AtmBillingRecords.Add(billingRecord);
                 await _context.SaveChangesAsync();
 
                 await transaction.CommitAsync();
