@@ -9,6 +9,7 @@ using ServiceApotheke.API.Attributes;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using ServiceApotheke.API.Services;
 
 namespace ServiceApotheke.API.Controllers.ATM
 {
@@ -19,11 +20,13 @@ namespace ServiceApotheke.API.Controllers.ATM
     {
         private readonly DataContext _context;
         private readonly IWebHostEnvironment _env;
+        private readonly IGoogleCloudStorageService _storageService;
 
-        public ConsentController(DataContext context, IWebHostEnvironment env)
+        public ConsentController(DataContext context, IWebHostEnvironment env, IGoogleCloudStorageService storageService)
         {
             _context = context;
             _env = env;
+            _storageService = storageService;
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
@@ -80,18 +83,13 @@ namespace ServiceApotheke.API.Controllers.ATM
                 await _context.SaveChangesAsync();
 
                 // 2. QuestPDF Generation
-                var consentsDir = Path.Combine(_env.WebRootPath ?? Path.GetTempPath(), "consents");
-                if (!Directory.Exists(consentsDir))
-                {
-                    Directory.CreateDirectory(consentsDir);
-                }
-
                 var fileName = $"consent_{consentAgreement.Id}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
-                var filePath = Path.Combine(consentsDir, fileName);
+                var pdfBytes = GeneratePdf(request);
+                
+                using var memoryStream = new MemoryStream(pdfBytes);
+                var locator = await _storageService.UploadDocumentAsync(memoryStream, fileName, "application/pdf");
 
-                GeneratePdf(filePath, request);
-
-                billingRecord.ReportPath = $"/consents/{fileName}";
+                billingRecord.ReportPath = $"/api/atm/kiosk/download/{locator}";
                 await _context.SaveChangesAsync();
 
                 await transaction.CommitAsync();
@@ -110,9 +108,9 @@ namespace ServiceApotheke.API.Controllers.ATM
             }
         }
 
-        private void GeneratePdf(string filePath, ConsentRequest request)
+        private byte[] GeneratePdf(ConsentRequest request)
         {
-            Document.Create(container =>
+            return Document.Create(container =>
             {
                 container.Page(page =>
                 {
@@ -167,7 +165,7 @@ namespace ServiceApotheke.API.Controllers.ATM
                         x.TotalPages();
                     });
                 });
-            }).GeneratePdf(filePath);
+            }).GeneratePdf();
         }
     }
 

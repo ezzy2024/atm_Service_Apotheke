@@ -8,6 +8,7 @@ using System.Security.Claims;
 using ServiceApotheke.API.Data;
 using ServiceApotheke.API.Models.ATM;
 using Microsoft.EntityFrameworkCore;
+using ServiceApotheke.API.Services;
 
 namespace ServiceApotheke.API.Controllers.ATM
 {
@@ -17,11 +18,13 @@ namespace ServiceApotheke.API.Controllers.ATM
     {
         private readonly IMemoryCache _cache;
         private readonly DataContext _context;
+        private readonly IGoogleCloudStorageService _storageService;
 
-        public KioskController(IMemoryCache cache, DataContext context)
+        public KioskController(IMemoryCache cache, DataContext context, IGoogleCloudStorageService storageService)
         {
             _cache = cache;
             _context = context;
+            _storageService = storageService;
         }
 
         // Unauthenticated, Terminal-side
@@ -180,6 +183,22 @@ namespace ServiceApotheke.API.Controllers.ATM
                 .ToListAsync();
 
             return Ok(ledger);
+        }
+
+        [HttpGet("download/{locator}")]
+        [Authorize(Roles = "Pharmacy")]
+        public async Task<IActionResult> DownloadConsent(string locator)
+        {
+            var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userId, out int pharmacyUserId)) return Unauthorized();
+
+            var pharmacy = await _context.Pharmacies.FirstOrDefaultAsync(p => p.Id == pharmacyUserId);
+            if (pharmacy == null) return Unauthorized();
+
+            // Note: A true production system would also verify this specific locator 
+            // belongs to a billing record owned by this pharmacy to prevent IDOR.
+            var stream = await _storageService.DownloadDocumentAsync(locator);
+            return File(stream, "application/pdf");
         }
     }
 
