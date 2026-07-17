@@ -219,15 +219,39 @@ namespace ServiceApotheke.API.Controllers.ATM
                     }
                 }
                 
-                command.CommandText = "SELECT table_name, view_definition FROM information_schema.views WHERE table_name = 'ConsentAgreements';";
-                string viewDef = null;
+                command.CommandText = "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'ConsentAgreements';";
+                var columns = new System.Collections.Generic.List<object>();
                 using (var reader2 = await command.ExecuteReaderAsync()) {
-                    if (await reader2.ReadAsync()) {
-                        viewDef = reader2.GetString(1);
+                    while (await reader2.ReadAsync()) {
+                        columns.Add(new {
+                            Name = reader2.GetString(0),
+                            Type = reader2.GetString(1),
+                            Nullable = reader2.GetString(2)
+                        });
+                    }
+                }
+                
+                command.CommandText = "SELECT count(*) FROM \"ConsentAgreements\";";
+                int count = 0;
+                using (var reader3 = await command.ExecuteReaderAsync()) {
+                    if (await reader3.ReadAsync()) {
+                        count = Convert.ToInt32(reader3.GetValue(0));
                     }
                 }
 
-                return Ok(new { Records = results, ViewDefinition = viewDef });
+                command.CommandText = "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'AtmConsentRecords';";
+                var columns2 = new System.Collections.Generic.List<object>();
+                using (var reader4 = await command.ExecuteReaderAsync()) {
+                    while (await reader4.ReadAsync()) {
+                        columns2.Add(new {
+                            Name = reader4.GetString(0),
+                            Type = reader4.GetString(1),
+                            Nullable = reader4.GetString(2)
+                        });
+                    }
+                }
+
+                return Ok(new { Columns = columns, Count = count, AtmColumns = columns2 });
             } catch (Exception ex) {
                 return StatusCode(500, ex.ToString());
             }
