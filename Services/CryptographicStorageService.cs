@@ -20,7 +20,7 @@ namespace ServiceApotheke.API.Services
 
         public LocalEncryptedStorageProvider(IConfiguration configuration)
         {
-            var keyBase64 = configuration["DMS:AesEncryptionKey"] ?? "b2VFRURHREVDc1Y5RElKT3gwbThYMWtzbnRTRkhUcmE="; // 32 bytes base64 for local dev
+            var keyBase64 = configuration["DMS:AesEncryptionKey"] ?? throw new InvalidOperationException("DMS:AesEncryptionKey is missing from configuration.");
             _encryptionKey = Convert.FromBase64String(keyBase64);
             _storageDirectory = Path.Combine(Path.GetTempPath(), "DmsVault");
 
@@ -95,7 +95,7 @@ namespace ServiceApotheke.API.Services
 
         public GcsEncryptedStorageProvider(IConfiguration configuration, IGoogleCloudStorageService gcsService)
         {
-            var keyBase64 = configuration["DMS:AesEncryptionKey"] ?? "b2VFRURHREVDc1Y5RElKT3gwbThYMWtzbnRTRkhUcmE=";
+            var keyBase64 = configuration["DMS:AesEncryptionKey"] ?? throw new InvalidOperationException("DMS:AesEncryptionKey is missing from configuration.");
             _encryptionKey = Convert.FromBase64String(keyBase64);
             _gcsService = gcsService;
         }
