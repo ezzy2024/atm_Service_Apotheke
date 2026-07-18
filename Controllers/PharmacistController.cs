@@ -368,10 +368,25 @@ namespace ServiceApotheke.API.Controllers
         [HttpGet("test-seed")]
         public async Task<IActionResult> TestSeed()
         {
+            var suffix = Guid.NewGuid().ToString("N").Substring(0, 6);
+            var pharmacy = new Pharmacy
+            {
+                PharmacyName = $"Test Apotheke {suffix}",
+                Email = $"testpharmacy_{suffix}@example.com",
+                PasswordHash = "hashed",
+                PhoneNumber = "0123456789",
+                Street = "Apothekenstr.",
+                HouseNumber = "42",
+                PostalCode = "80331",
+                City = "München",
+                IsVerified = true
+            };
+            _context.Pharmacies.Add(pharmacy);
+
             var pharmacist = new Pharmacist
             {
-                FullName = "Test Apotheker",
-                Email = "test.apotheker@example.com",
+                FullName = $"Test Apotheker {suffix}",
+                Email = $"test.apotheker_{suffix}@example.com",
                 PasswordHash = "hashed",
                 Street = "Teststr.",
                 HouseNumber = "1",
@@ -385,20 +400,6 @@ namespace ServiceApotheke.API.Controllers
                 HourlyRate = 50.0m
             };
             _context.Pharmacists.Add(pharmacist);
-
-            var pharmacy = new Pharmacy
-            {
-                PharmacyName = "Test Apotheke",
-                Email = "test.apotheke@example.com",
-                PasswordHash = "hashed",
-                PhoneNumber = "0123456789",
-                Street = "Apothekenstr.",
-                HouseNumber = "42",
-                PostalCode = "80331",
-                City = "München",
-                IsVerified = true
-            };
-            _context.Pharmacies.Add(pharmacy);
             await _context.SaveChangesAsync();
 
             var jobPost = new JobPost
@@ -437,7 +438,7 @@ namespace ServiceApotheke.API.Controllers
             _context.Timesheets.Add(timesheet);
             await _context.SaveChangesAsync();
 
-            return Ok(new { PharmacistId = pharmacist.Id, TimesheetId = timesheet.Id });
+            return Ok($"Test data seeded successfully! Timesheet ID: {timesheet.Id}");
         }
     }
 
