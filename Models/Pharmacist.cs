@@ -24,6 +24,10 @@ namespace ServiceApotheke.API.Models
         [Phone]
         public string PhoneNumber { get; set; } = string.Empty;
 
+        // Bank Details
+        public string? Iban { get; set; }
+        public string? Bic { get; set; }
+
         // Stripe Connect Account
         public string? StripeConnectAccountId { get; set; }
 

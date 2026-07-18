@@ -179,6 +179,7 @@ builder.Services.AddDataProtection()
 
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.DataRetentionWorker>();
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.GeocodingBackfillWorker>();
+builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.ShiftVerificationWorker>();
 builder.Services.AddScoped<IRedMedicalService, RedMedicalService>();
 
 builder.Services.AddRateLimiter(options =>

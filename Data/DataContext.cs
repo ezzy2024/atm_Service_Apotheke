@@ -152,6 +152,8 @@ namespace ServiceApotheke.API.Data
             var converter = new AesEncryptionConverter(encryptionKey);
 
             modelBuilder.Entity<Pharmacist>().Property(p => p.ApprobationDocumentPath).HasConversion(converter).HasMaxLength(2048); 
+            modelBuilder.Entity<Pharmacist>().Property(p => p.Iban).HasConversion(converter).HasMaxLength(256);
+            modelBuilder.Entity<Pharmacist>().Property(p => p.Bic).HasConversion(converter).HasMaxLength(256);
             modelBuilder.Entity<JobPost>().HasOne(j => j.Pharmacy).WithMany(p => p.JobPosts).HasForeignKey(j => j.PharmacyId).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<JobApplication>().HasOne(a => a.JobPost).WithMany(j => j.JobApplications).HasForeignKey(a => a.JobPostId).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<Pharmacist>().HasIndex(p => p.Email).IsUnique();

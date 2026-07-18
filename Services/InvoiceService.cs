@@ -37,7 +37,7 @@ namespace ServiceApotheke.API.Services
                         ComposeContent(content, senderLine, invoiceNumber, timesheet, pharmacyName, pharmacyAddress, contactPerson, totalHours, laborCost, total, includeTravel: true, includePlatformFee: false);
                     });
 
-                    page.Footer().Element(c => ComposeFooter(c, pharmacist.FullName, $"{pharmacist.Street} {pharmacist.HouseNumber}", $"{pharmacist.PostalCode} {pharmacist.City}", "Bitte kontaktieren Sie mich bei Rückfragen", pharmacist.TaxId ?? "Nicht angegeben", ""));
+                    page.Footer().Element(c => ComposeFooter(c, pharmacist.FullName, $"{pharmacist.Street} {pharmacist.HouseNumber}", $"{pharmacist.PostalCode} {pharmacist.City}", "Bitte kontaktieren Sie mich bei Rückfragen", pharmacist.TaxId ?? "Nicht angegeben", $"IBAN: {pharmacist.Iban ?? "-"} | BIC: {pharmacist.Bic ?? "-"}"));
                 });
             }).GeneratePdf();
             
@@ -200,6 +200,10 @@ namespace ServiceApotheke.API.Services
                 t.Span($"{remark}\n").FontSize(9);
                 t.Span($"{name} • {str} • {city}\n").FontSize(8).FontColor(Colors.Grey.Medium);
                 t.Span($"Steuernummer: {taxId}").FontSize(8).FontColor(Colors.Grey.Medium);
+                if (!string.IsNullOrEmpty(bank))
+                {
+                    t.Span($"\nBankverbindung: {bank}").FontSize(8).FontColor(Colors.Grey.Medium);
+                }
             });
         }
     }

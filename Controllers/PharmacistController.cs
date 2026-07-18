@@ -230,6 +230,8 @@ namespace ServiceApotheke.API.Controllers
             user.City = dto.City ?? user.City;
             user.MaxDistanceKm = dto.MaxDistanceKm;
             user.AvailableDaysPerWeek = dto.AvailableDaysPerWeek;
+            user.Iban = dto.Iban ?? user.Iban;
+            user.Bic = dto.Bic ?? user.Bic;
             
             if (addressChanged || user.Latitude == null || user.Longitude == null)
             {
@@ -361,6 +363,81 @@ namespace ServiceApotheke.API.Controllers
 
             return Ok(new { message = "Dokumente erfolgreich hochgeladen." });
         }
+
+        [HttpGet("test-seed")]
+        public async Task<IActionResult> TestSeed()
+        {
+            var pharmacist = new Pharmacist
+            {
+                FullName = "Test Apotheker",
+                Email = "test.apotheker@example.com",
+                PasswordHash = "hashed",
+                Street = "Teststr.",
+                HouseNumber = "1",
+                PostalCode = "10115",
+                City = "Berlin",
+                Iban = "DE12345678901234567890",
+                Bic = "TESTDEFFXXX",
+                IsVerified = true,
+                HasApprobation = true,
+                Qualification = "Approbation",
+                HourlyRate = 50.0m
+            };
+            _context.Pharmacists.Add(pharmacist);
+
+            var pharmacy = new Pharmacy
+            {
+                PharmacyName = "Test Apotheke",
+                Email = "test.apotheke@example.com",
+                PasswordHash = "hashed",
+                PhoneNumber = "0123456789",
+                Street = "Apothekenstr.",
+                HouseNumber = "42",
+                PostalCode = "80331",
+                City = "München",
+                IsVerified = true
+            };
+            _context.Pharmacies.Add(pharmacy);
+            await _context.SaveChangesAsync();
+
+            var jobPost = new JobPost
+            {
+                PharmacyId = pharmacy.Id,
+                Title = "Tagesvertretung",
+                StartDate = DateTime.UtcNow.AddDays(-2),
+                EndDate = DateTime.UtcNow.AddDays(-1),
+                Salary = 50.0m,
+                Status = "Open",
+                Description = "Test"
+            };
+            _context.JobPosts.Add(jobPost);
+            await _context.SaveChangesAsync();
+
+            var app = new JobApplication
+            {
+                JobPostId = jobPost.Id,
+                PharmacistId = pharmacist.Id,
+                Status = "Accepted",
+                AppliedAt = DateTime.UtcNow.AddDays(-3)
+            };
+            _context.JobApplications.Add(app);
+            await _context.SaveChangesAsync();
+
+            var timesheet = new Timesheet
+            {
+                JobApplicationId = app.Id,
+                ActualStartDate = jobPost.StartDate ?? DateTime.UtcNow.AddDays(-2),
+                ActualStartTime = new TimeSpan(8, 0, 0),
+                ActualEndTime = new TimeSpan(16, 0, 0),
+                HourlyRate = 50.0m,
+                TravelCosts = 20.0m,
+                Status = "Submitted"
+            };
+            _context.Timesheets.Add(timesheet);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { PharmacistId = pharmacist.Id, TimesheetId = timesheet.Id });
+        }
     }
 
     public class EmailConfirmDto { public string Email { get; set; } = ""; public string Token { get; set; } = ""; }
@@ -375,6 +452,8 @@ namespace ServiceApotheke.API.Controllers
         public string? City { get; set; }
         public int MaxDistanceKm { get; set; }
         public int AvailableDaysPerWeek { get; set; }
+        public string? Iban { get; set; }
+        public string? Bic { get; set; }
     }
 
 
