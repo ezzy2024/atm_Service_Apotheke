@@ -30,6 +30,7 @@ namespace ServiceApotheke.API.Models.ATM
 
         public byte[] SignatureBlob { get; set; }
 
+        public bool IsTelepharmacyConsentGranted { get; set; }
 
         public bool IsWwsExportGranted { get; set; }
 

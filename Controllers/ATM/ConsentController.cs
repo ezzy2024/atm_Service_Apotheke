@@ -57,7 +57,7 @@ namespace ServiceApotheke.API.Controllers.ATM
                 HealthInsuranceNumber = request.HealthInsuranceNumber,
                 IkNumber = request.IkNumber,
                 SignatureBlob = request.SignatureBlob,
-
+                IsTelepharmacyConsentGranted = request.IsTelepharmacyConsentGranted,
                 IsWwsExportGranted = request.IsWwsExportGranted,
                 SignedDate = DateTime.UtcNow
             };
