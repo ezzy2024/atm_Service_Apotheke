@@ -364,6 +364,7 @@ namespace ServiceApotheke.API.Controllers
             return Ok(new { message = "Dokumente erfolgreich hochgeladen." });
         }
 
+        [AllowAnonymous]
         [HttpGet("test-seed")]
         public async Task<IActionResult> TestSeed()
         {
