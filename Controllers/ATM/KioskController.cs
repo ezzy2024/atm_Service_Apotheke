@@ -239,7 +239,7 @@ namespace ServiceApotheke.API.Controllers.ATM
                     }
                 }
 
-                command.CommandText = "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'AtmConsentRecords';";
+                command.CommandText = "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'AtmBillingRecords';";
                 var columns2 = new System.Collections.Generic.List<object>();
                 using (var reader4 = await command.ExecuteReaderAsync()) {
                     while (await reader4.ReadAsync()) {
