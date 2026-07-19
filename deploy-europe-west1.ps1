@@ -9,6 +9,6 @@ Write-Host "Submitting build to Cloud Build..."
 gcloud builds submit --tag $IMAGE_TAG .
 
 Write-Host "Deploying to Cloud Run..."
-gcloud run deploy serviceapotheke-api --region $REGION --image $IMAGE_TAG --update-env-vars "ConnectionStrings__DefaultConnection=Host=/cloudsql/$DB_INSTANCE;Database=serviceapotheke-db;Username=appuser;Password=ServiceApotheke2026Strong" --set-cloudsql-instances $DB_INSTANCE --quiet
+gcloud run deploy serviceapotheke-api --region $REGION --image $IMAGE_TAG --update-env-vars "ConnectionStrings__DefaultConnection=Host=/cloudsql/$DB_INSTANCE;Database=serviceapotheke-db;Username=appuser;Password=ServiceApotheke2026Strong" --set-cloudsql-instances $DB_INSTANCE --set-secrets="JwtSettings__Secret=serviceapotheke-jwt-secret:latest,SmtpSettings__Password=serviceapotheke-smtp-password:latest" --quiet
 
 Write-Host "Deployment Complete."
