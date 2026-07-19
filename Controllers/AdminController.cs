@@ -19,20 +19,26 @@ namespace ServiceApotheke.API.Controllers
     public class AdminController : ControllerBase
     {
         private readonly DataContext _context;
+        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
 
-        public AdminController(DataContext context)
+        public AdminController(DataContext context, Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         [AllowAnonymous]
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginDto login)
         {
-            if (login.Email == "admin@serviceapotheke.tech" && login.Password == "RootAccess2026!")
+            var adminUser = _configuration["AdminSettings:Email"] ?? _configuration["AdminSettings__Email"] ?? "admin@serviceapotheke.tech";
+            var adminPass = _configuration["AdminSettings:Password"] ?? _configuration["AdminSettings__Password"] ?? Environment.GetEnvironmentVariable("ADMIN_PASS");
+
+            if (!string.IsNullOrEmpty(adminPass) && login.Email == adminUser && login.Password == adminPass)
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.UTF8.GetBytes("EIN_LANGER_GEHEIMER_SCHLUESSEL_MIT_MINDESTENS_32_ZEICHEN");
+                var jwtKey = _configuration["JwtSettings:Secret"] ?? _configuration["JwtSettings__Secret"] ?? Environment.GetEnvironmentVariable("JWT_KEY") ?? "EIN_LANGER_GEHEIMER_SCHLUESSEL_MIT_MINDESTENS_32_ZEICHEN";
+                var key = Encoding.UTF8.GetBytes(jwtKey);
                 var tokenDescriptor = new SecurityTokenDescriptor
                 {
                     Subject = new ClaimsIdentity(new[]
