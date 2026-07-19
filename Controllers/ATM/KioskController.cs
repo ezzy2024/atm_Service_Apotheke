@@ -66,6 +66,7 @@ namespace ServiceApotheke.API.Controllers.ATM
         // Authenticated, Pharmacy-side
         [HttpPost("pair")]
         [Authorize(Roles = "Pharmacy")]
+        [ServiceApotheke.API.Filters.PremiumFeature]
         public async Task<IActionResult> Pair([FromBody] PairRequest request)
         {
             if (string.IsNullOrEmpty(request.Code))
@@ -121,6 +122,7 @@ namespace ServiceApotheke.API.Controllers.ATM
 
         [HttpGet("terminals")]
         [Authorize(Roles = "Pharmacy")]
+        [ServiceApotheke.API.Filters.PremiumFeature]
         public async Task<IActionResult> GetTerminals()
         {
             var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -140,6 +142,7 @@ namespace ServiceApotheke.API.Controllers.ATM
 
         [HttpDelete("terminals/{id}")]
         [Authorize(Roles = "Pharmacy")]
+        [ServiceApotheke.API.Filters.PremiumFeature]
         public async Task<IActionResult> RevokeTerminal(int id)
         {
             var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -159,6 +162,7 @@ namespace ServiceApotheke.API.Controllers.ATM
 
         [HttpGet("ledger")]
         [Authorize(Roles = "Pharmacy")]
+        [ServiceApotheke.API.Filters.PremiumFeature]
         public async Task<IActionResult> GetLedger()
         {
             var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -187,6 +191,7 @@ namespace ServiceApotheke.API.Controllers.ATM
 
         [HttpGet("download/{locator}")]
         [Authorize(Roles = "Pharmacy")]
+        [ServiceApotheke.API.Filters.PremiumFeature]
         public async Task<IActionResult> DownloadConsent(string locator)
         {
             var userId = User.FindFirstValue("id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
