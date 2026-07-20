@@ -31,8 +31,9 @@ namespace ServiceApotheke.API.Controllers
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginDto login)
         {
-            var adminUser = _configuration["AdminSettings:Email"] ?? _configuration["AdminSettings__Email"] ?? "admin@serviceapotheke.tech";
-            var adminPass = _configuration["AdminSettings:Password"] ?? _configuration["AdminSettings__Password"] ?? Environment.GetEnvironmentVariable("ADMIN_PASS");
+            var adminUser = _configuration["AdminSettings:Email"] ?? "admin@serviceapotheke.tech";
+            var adminPass = _configuration["AdminSettings:Password"];
+            if (string.IsNullOrEmpty(adminPass)) throw new Exception("Admin password is missing from configuration!");
 
             if (!string.IsNullOrEmpty(adminPass) && login.Email == adminUser && login.Password == adminPass)
             {
