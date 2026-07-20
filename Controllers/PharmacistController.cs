@@ -25,12 +25,14 @@ namespace ServiceApotheke.API.Controllers
         private readonly DataContext _context;
         private readonly EmailService _emailService;
         private readonly IGeocodingService _geocodingService;
+        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
 
-        public PharmacistController(DataContext context, EmailService emailService, IGeocodingService geocodingService)
+        public PharmacistController(DataContext context, EmailService emailService, IGeocodingService geocodingService, Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _context = context;
             _emailService = emailService;
             _geocodingService = geocodingService;
+            _configuration = configuration;
         }
 
         [AllowAnonymous]
@@ -139,7 +141,9 @@ namespace ServiceApotheke.API.Controllers
             if (!user.IsEmailConfirmed)
                 return Unauthorized(new { message = "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse." });
 
-            var key = Encoding.UTF8.GetBytes("EIN_LANGER_GEHEIMER_SCHLUESSEL_MIT_MINDESTENS_32_ZEICHEN");
+            var jwtKey = _configuration["JwtSettings:Secret"];
+            if (string.IsNullOrEmpty(jwtKey)) throw new Exception("JWT Secret is missing from configuration!");
+            var key = Encoding.UTF8.GetBytes(jwtKey);
             var tokenDescriptor = new SecurityTokenDescriptor {
                 Subject = new ClaimsIdentity(new[] { 
                     new Claim("id", user.Id.ToString()), 
@@ -362,6 +366,60 @@ namespace ServiceApotheke.API.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Dokumente erfolgreich hochgeladen." });
+        }
+
+        [Authorize]
+        [HttpGet("{id}/document/{docType}")]
+        public async Task<IActionResult> DownloadDocument(int id, string docType)
+        {
+            var userIdStr = User.FindFirstValue("id") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+            var userRole = User.FindFirstValue("role") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Role);
+            
+            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
+                return Unauthorized();
+                
+            var pharmacist = await _context.Pharmacists.FindAsync(id);
+            if (pharmacist == null) return NotFound();
+            
+            // 1. Authorization Gate: Verify pharmacy actually has an application from this pharmacist
+            if (userRole == "Pharmacy")
+            {
+                bool hasApplication = await _context.JobApplications
+                    .Include(a => a.JobPost)
+                    .AnyAsync(a => a.PharmacistId == id && a.JobPost != null && a.JobPost.PharmacyId == userId);
+                    
+                if (!hasApplication)
+                {
+                    return StatusCode(403, new { message = "Zugriff verweigert: Keine aktive Bewerbung für Ihre Apotheke." });
+                }
+            }
+            else if (userRole == "Pharmacist" && userId != id)
+            {
+                return StatusCode(403, new { message = "Zugriff verweigert." });
+            }
+            
+            string? path = docType.ToLower() switch 
+            {
+                "approbation" => pharmacist.ApprobationDocumentPath,
+                "cv" => pharmacist.CvDocumentPath,
+                "profile" => pharmacist.ProfilePicturePath,
+                _ => null
+            };
+            
+            if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
+                return NotFound("Dokument nicht gefunden.");
+                
+            string ext = System.IO.Path.GetExtension(path).ToLower();
+            string contentType = ext switch {
+                ".pdf" => "application/pdf",
+                ".png" => "image/png",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                _ => "application/octet-stream"
+            };
+            
+            var stream = new System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.Read);
+            return File(stream, contentType);
         }
 
         [AllowAnonymous]

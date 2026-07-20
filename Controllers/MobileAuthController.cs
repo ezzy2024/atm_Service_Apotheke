@@ -18,10 +18,12 @@ namespace ServiceApotheke.API.Controllers
     public class MobileAuthController : ControllerBase
     {
         private readonly DataContext _context;
+        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
 
-        public MobileAuthController(DataContext context)
+        public MobileAuthController(DataContext context, Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         [AllowAnonymous]
@@ -131,7 +133,9 @@ namespace ServiceApotheke.API.Controllers
 
         private string GenerateAccessToken(Pharmacist user)
         {
-            var key = Encoding.UTF8.GetBytes("EIN_LANGER_GEHEIMER_SCHLUESSEL_MIT_MINDESTENS_32_ZEICHEN");
+            var jwtKey = _configuration["JwtSettings:Secret"];
+            if (string.IsNullOrEmpty(jwtKey)) throw new Exception("JWT Secret is missing from configuration!");
+            var key = Encoding.UTF8.GetBytes(jwtKey);
             var tokenDescriptor = new SecurityTokenDescriptor {
                 Subject = new ClaimsIdentity(new[] { 
                     new Claim("id", user.Id.ToString()), 

@@ -140,9 +140,13 @@ builder.Services.AddScoped<INotificationDispatcher, FcmNotificationDispatcher>()
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options => {
+        var jwtKey = builder.Configuration["JwtSettings:Secret"];
+        if (string.IsNullOrEmpty(jwtKey)) throw new Exception("JWT Secret is missing from configuration!");
+        var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+        
         options.TokenValidationParameters = new TokenValidationParameters {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("EIN_LANGER_GEHEIMER_SCHLUESSEL_MIT_MINDESTENS_32_ZEICHEN")),
+            IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
             ValidateIssuer = true,
             ValidateAudience = true,
             ValidIssuer = "ServiceApotheke.API",
@@ -180,6 +184,10 @@ builder.Services.AddDataProtection()
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.DataRetentionWorker>();
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.GeocodingBackfillWorker>();
 builder.Services.AddHostedService<ServiceApotheke.API.Services.Workers.ShiftVerificationWorker>();
+
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ServiceApotheke.API.Services.Workers.NewsRssService>();
+
 builder.Services.AddScoped<IRedMedicalService, RedMedicalService>();
 
 builder.Services.AddRateLimiter(options =>
@@ -256,7 +264,7 @@ app.Use(async (context, next) =>
         {
             context.Response.Headers.Append("Access-Control-Allow-Origin", origin);
             context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
-            context.Response.Headers.Append("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept, Origin, User-Agent, X-Requested-With, Cache-Control");
+            context.Response.Headers.Append("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept, Origin, User-Agent, X-Requested-With, Cache-Control, X-CSRF-TOKEN");
             context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
             context.Response.Headers.Append("Access-Control-Expose-Headers", "Content-Disposition");
         }
