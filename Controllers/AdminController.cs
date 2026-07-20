@@ -19,20 +19,28 @@ namespace ServiceApotheke.API.Controllers
     public class AdminController : ControllerBase
     {
         private readonly DataContext _context;
+        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
 
-        public AdminController(DataContext context)
+        public AdminController(DataContext context, Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         [AllowAnonymous]
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginDto login)
         {
-            if (login.Email == "admin@serviceapotheke.tech" && login.Password == "RootAccess2026!")
+            var adminUser = _configuration["AdminSettings:Email"] ?? "admin@serviceapotheke.tech";
+            var adminPass = _configuration["AdminSettings:Password"];
+            if (string.IsNullOrEmpty(adminPass)) throw new Exception("Admin password is missing from configuration!");
+
+            if (!string.IsNullOrEmpty(adminPass) && login.Email == adminUser && login.Password == adminPass)
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.UTF8.GetBytes("EIN_LANGER_GEHEIMER_SCHLUESSEL_MIT_MINDESTENS_32_ZEICHEN");
+                var jwtKey = _configuration["JwtSettings:Secret"];
+                if (string.IsNullOrEmpty(jwtKey)) throw new Exception("JWT Secret is missing from configuration!");
+                var key = Encoding.UTF8.GetBytes(jwtKey);
                 var tokenDescriptor = new SecurityTokenDescriptor
                 {
                     Subject = new ClaimsIdentity(new[]
@@ -221,6 +229,90 @@ namespace ServiceApotheke.API.Controllers
             }
 
             return Ok(new { message = $"Checked kiosk telemetry. Found {inactiveTerminals.Count} non-active terminals." });
+        }
+
+        [HttpGet("document/{role}/{id}/{documentType}")]
+        public async Task<IActionResult> DownloadAdminDocument(
+            string role, 
+            int id, 
+            string documentType,
+            [FromServices] ServiceApotheke.API.Services.ICryptographicStorageService cryptoStorage,
+            [FromServices] ServiceApotheke.API.Services.IGoogleCloudStorageService gcsStorage)
+        {
+            string? path = null;
+            if (role.ToLower() == "pharmacist")
+            {
+                var p = await _context.Pharmacists.FindAsync(id);
+                if (p == null) return NotFound();
+                path = documentType.ToLower() switch 
+                {
+                    "approbation" => p.ApprobationDocumentPath,
+                    "cv" => p.CvDocumentPath,
+                    "contract" => p.FreelanceContractDocumentPath,
+                    "idcard" => p.IdCardDocumentPath,
+                    "insurance" => p.LiabilityInsuranceDocumentPath,
+                    "profile" => p.ProfilePicturePath,
+                    _ => null
+                };
+            }
+            else if (role.ToLower() == "pharmacy")
+            {
+                var p = await _context.Pharmacies.FindAsync(id);
+                if (p == null) return NotFound();
+                path = documentType.ToLower() switch 
+                {
+                    "contract" => p.FreelanceContractDocumentPath,
+                    "telepharmacy" => p.TelepharmacyConsentDocumentPath,
+                    _ => null
+                };
+            }
+
+            if (string.IsNullOrEmpty(path)) return NotFound("Dokument nicht gefunden.");
+
+            string ext = System.IO.Path.GetExtension(path.Replace(".enc", "")).ToLower();
+            string contentType = ext switch {
+                ".pdf" => "application/pdf",
+                ".png" => "image/png",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                _ => "application/octet-stream"
+            };
+
+            try 
+            {
+                if (path.StartsWith("gs://"))
+                {
+                    var objectName = path.Substring(5);
+                    var stream = await gcsStorage.DownloadDocumentAsync(objectName);
+                    return File(stream, contentType);
+                }
+                else if (path.EndsWith(".enc"))
+                {
+                    var fileBytes = await cryptoStorage.RetrieveAndDecryptAsync(path);
+                    return File(fileBytes, contentType);
+                }
+                else if (System.IO.File.Exists(path))
+                {
+                    var stream = new System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.Read);
+                    return File(stream, contentType);
+                }
+                else if (path.StartsWith("/uploads"))
+                {
+                    var webRoot = Path.Combine(Path.GetTempPath(), "ServiceApothekeUploads", role.ToLower());
+                    var localPath = Path.Combine(webRoot, path.TrimStart('/'));
+                    if (System.IO.File.Exists(localPath))
+                    {
+                        var stream = new System.IO.FileStream(localPath, System.IO.FileMode.Open, System.IO.FileAccess.Read);
+                        return File(stream, contentType);
+                    }
+                }
+                
+                return NotFound($"Dokumentdatei nicht gefunden: {path}");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Fehler beim Laden des Dokuments.", error = ex.Message });
+            }
         }
 
         [HttpPost("migrate-dms-to-gcs")]

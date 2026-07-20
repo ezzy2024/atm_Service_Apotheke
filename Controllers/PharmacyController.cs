@@ -24,14 +24,16 @@ namespace ServiceApotheke.API.Controllers
         private readonly IGeocodingService _geocodingService;
         private readonly IWebHostEnvironment _env;
         private readonly ICryptographicStorageService _cryptoStorageService;
+        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
 
-        public PharmacyController(DataContext context, EmailService emailService, IGeocodingService geocodingService, IWebHostEnvironment env, ICryptographicStorageService cryptoStorageService)
+        public PharmacyController(DataContext context, EmailService emailService, IGeocodingService geocodingService, IWebHostEnvironment env, ICryptographicStorageService cryptoStorageService, Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _context = context;
             _emailService = emailService;
             _geocodingService = geocodingService;
             _env = env;
             _cryptoStorageService = cryptoStorageService;
+            _configuration = configuration;
         }
 
         [AllowAnonymous]
@@ -114,7 +116,9 @@ namespace ServiceApotheke.API.Controllers
             }
 
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes("EIN_LANGER_GEHEIMER_SCHLUESSEL_MIT_MINDESTENS_32_ZEICHEN");
+            var jwtKey = _configuration["JwtSettings:Secret"];
+            if (string.IsNullOrEmpty(jwtKey)) throw new Exception("JWT Secret is missing from configuration!");
+            var key = Encoding.UTF8.GetBytes(jwtKey);
             
             var tokenDescriptor = new SecurityTokenDescriptor
             {
@@ -173,7 +177,9 @@ namespace ServiceApotheke.API.Controllers
                 return Unauthorized(new { message = "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse." });
 
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes("EIN_LANGER_GEHEIMER_SCHLUESSEL_MIT_MINDESTENS_32_ZEICHEN");
+            var jwtKey = _configuration["JwtSettings:Secret"];
+            if (string.IsNullOrEmpty(jwtKey)) throw new Exception("JWT Secret is missing from configuration!");
+            var key = Encoding.UTF8.GetBytes(jwtKey);
             
             var tokenDescriptor = new SecurityTokenDescriptor
             {
