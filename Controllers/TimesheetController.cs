@@ -9,6 +9,7 @@ using ServiceApotheke.API.Services;
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using ServiceApotheke.API.Domain.Constants;
 
 namespace ServiceApotheke.API.Controllers
 {
@@ -37,7 +38,7 @@ namespace ServiceApotheke.API.Controllers
                     .ThenInclude(ja => ja.JobPost!)
                 .Include(t => t.JobApplication!)
                     .ThenInclude(ja => ja.Pharmacist!)
-                .Where(t => t.JobApplication!.JobPost!.PharmacyId == pharmacyId && (t.Status == "Submitted" || t.Status == "Disputed"))
+                .Where(t => t.JobApplication!.JobPost!.PharmacyId == pharmacyId && (t.Status == TimesheetStatus.Submitted || t.Status == TimesheetStatus.Disputed))
                 .Select(t => new
                 {
                     id = t.Id,
@@ -60,10 +61,17 @@ namespace ServiceApotheke.API.Controllers
         [HttpPost("submit")]
         public async Task<IActionResult> SubmitTimesheet([FromBody] Timesheet timesheet)
         {
-            var application = await _context.JobApplications.FindAsync(timesheet.JobApplicationId);
+            var application = await _context.JobApplications
+                .Include(a => a.JobPost)
+                .FirstOrDefaultAsync(a => a.Id == timesheet.JobApplicationId);
             if (application == null) return NotFound(new { message = "Bewerbung nicht gefunden." });
 
-            timesheet.Status = "Submitted";
+            if (application.JobPost?.EndDate != null && application.JobPost.EndDate > DateTime.UtcNow)
+            {
+                return BadRequest(new { message = "Timesheet cannot be submitted before the shift end date." });
+            }
+
+            timesheet.Status = TimesheetStatus.Submitted;
             timesheet.DisputeReason = null;
             timesheet.DisputedAt = null;
 
@@ -78,14 +86,14 @@ namespace ServiceApotheke.API.Controllers
         {
             var timesheet = await _context.Timesheets.FindAsync(timesheetId);
             if (timesheet == null) return NotFound(new { message = "Timesheet nicht gefunden." });
-            if (timesheet.Status != "Disputed") return BadRequest(new { message = "Nur konfliktbehaftete Stundenzettel können korrigiert werden." });
+            if (timesheet.Status != TimesheetStatus.Disputed) return BadRequest(new { message = "Nur konfliktbehaftete Stundenzettel können korrigiert werden." });
 
             timesheet.ActualStartDate = revisedTimesheet.ActualStartDate;
             timesheet.ActualStartTime = revisedTimesheet.ActualStartTime;
             timesheet.ActualEndTime = revisedTimesheet.ActualEndTime;
             timesheet.TravelCosts = revisedTimesheet.TravelCosts;
             timesheet.AccommodationCosts = revisedTimesheet.AccommodationCosts;
-            timesheet.Status = "Submitted";
+            timesheet.Status = TimesheetStatus.Submitted;
             timesheet.DisputeReason = null;
             timesheet.DisputedAt = null;
 
@@ -103,9 +111,9 @@ namespace ServiceApotheke.API.Controllers
         {
             var timesheet = await _context.Timesheets.FindAsync(timesheetId);
             if (timesheet == null) return NotFound(new { message = "Timesheet nicht gefunden." });
-            if (timesheet.Status == "Approved") return BadRequest(new { message = "Bereits freigegeben." });
+            if (timesheet.Status == TimesheetStatus.Approved) return BadRequest(new { message = "Bereits freigegeben." });
 
-            timesheet.Status = "Disputed";
+            timesheet.Status = TimesheetStatus.Disputed;
             timesheet.DisputeReason = request.Reason;
             timesheet.DisputedAt = DateTime.UtcNow;
 
@@ -125,9 +133,9 @@ namespace ServiceApotheke.API.Controllers
                 .FirstOrDefaultAsync(t => t.Id == timesheetId);
 
             if (timesheet == null) return NotFound(new { message = "Timesheet nicht gefunden." });
-            if (timesheet.Status == "Approved") return BadRequest(new { message = "Bereits freigegeben." });
+            if (timesheet.Status == TimesheetStatus.Approved) return BadRequest(new { message = "Bereits freigegeben." });
 
-            timesheet.Status = "Approved";
+            timesheet.Status = TimesheetStatus.Approved;
 
             var pharmacy = timesheet.JobApplication!.JobPost!.Pharmacy!;
             var pharmacist = timesheet.JobApplication!.Pharmacist!;
@@ -210,7 +218,7 @@ namespace ServiceApotheke.API.Controllers
                 .FirstOrDefaultAsync(t => t.Id == id);
 
             if (timesheet == null) return NotFound(new { message = "Timesheet nicht gefunden." });
-            if (timesheet.Status == "Disputed") return BadRequest(new { message = "Konfliktbehaftete Stundenzettel können nicht finalisiert werden." });
+            if (timesheet.Status == TimesheetStatus.Disputed) return BadRequest(new { message = "Konfliktbehaftete Stundenzettel können nicht finalisiert werden." });
 
             var shift = await _context.InternalShifts
                 .Include(s => s.Pharmacy)
@@ -234,7 +242,7 @@ namespace ServiceApotheke.API.Controllers
 
             timesheet.TimesheetPath = locatorFileName;
             timesheet.DigitalSignatureHash = documentHash;
-            timesheet.Status = "Approved";
+            timesheet.Status = TimesheetStatus.Approved;
 
             // Execute Escrow Release
             try

@@ -53,7 +53,17 @@ namespace ServiceApotheke.API.Services
                 mailMessage.Attachments.Add(attachment);
             }
 
-            await smtpClient.SendMailAsync(mailMessage);
+            Console.WriteLine($"[EmailService Diagnostic] Attempting to send email to {toEmail} via {host}:{port}...");
+            try
+            {
+                await smtpClient.SendMailAsync(mailMessage);
+                Console.WriteLine($"[EmailService Diagnostic] Successfully dispatched email to {toEmail} without exceptions.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[EmailService Diagnostic] FATAL ERROR during SendMailAsync: {ex.Message}");
+                throw;
+            }
         }
     }
 }

@@ -1,17 +1,17 @@
 using System.ServiceModel.Syndication;
 using System.Xml;
+using Microsoft.Extensions.Caching.Memory;
 using ServiceApotheke.API.Models.DTOs;
 
 namespace ServiceApotheke.API.Services.Workers
 {
-    public class NewsRssService : BackgroundService
+    public class NewsRssService
     {
         private readonly ILogger<NewsRssService> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IMemoryCache _cache;
         
-        // Cache to store the latest news items safely
-        private static List<NewsItemDto> _cachedNews = new();
-        private static readonly object _cacheLock = new();
+        private const string CacheKey = "NewsRssCache";
 
         private readonly string[] _feedUrls = new[]
         {
@@ -19,43 +19,24 @@ namespace ServiceApotheke.API.Services.Workers
             "https://www.apotheke-adhoc.de/nachrichten/rss.xml"
         };
 
-        public NewsRssService(ILogger<NewsRssService> logger, IHttpClientFactory httpClientFactory)
+        public NewsRssService(ILogger<NewsRssService> logger, IHttpClientFactory httpClientFactory, IMemoryCache cache)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
+            _cache = cache;
         }
 
-        public static List<NewsItemDto> GetLatestNews()
+        public async Task<List<NewsItemDto>> GetLatestNewsAsync(CancellationToken cancellationToken = default)
         {
-            lock (_cacheLock)
+            if (_cache.TryGetValue(CacheKey, out List<NewsItemDto>? cachedNews) && cachedNews != null)
             {
-                return _cachedNews.ToList();
+                return cachedNews;
             }
-        }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                try
-                {
-                    await UpdateNewsCacheAsync(stoppingToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error occurred while fetching RSS news feeds.");
-                }
-
-                // Refresh every hour
-                await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
-            }
-        }
-
-        private async Task UpdateNewsCacheAsync(CancellationToken cancellationToken)
-        {
             var allItems = new List<NewsItemDto>();
             using var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
 
             foreach (var url in _feedUrls)
             {
@@ -87,7 +68,7 @@ namespace ServiceApotheke.API.Services.Workers
                             }
                             catch
                             {
-                                // Fallback if PublishDate fails to parse (common in some German RSS feeds)
+                                // Fallback if PublishDate fails to parse
                                 allItems.Add(new NewsItemDto
                                 {
                                     Title = item.Title?.Text ?? "Kein Titel",
@@ -109,12 +90,13 @@ namespace ServiceApotheke.API.Services.Workers
             // Sort descending by date and take top 20
             var topItems = allItems.OrderByDescending(i => i.PubDate).Take(20).ToList();
 
-            lock (_cacheLock)
-            {
-                _cachedNews = topItems;
-            }
+            var cacheEntryOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromHours(1));
 
+            _cache.Set(CacheKey, topItems, cacheEntryOptions);
             _logger.LogInformation($"Updated news cache with {topItems.Count} items.");
+
+            return topItems;
         }
     }
 }

@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using ServiceApotheke.API.Data;
 using ServiceApotheke.API.Models;
 using ServiceApotheke.API.Services;
+using ServiceApotheke.API.Domain.Constants;
 
 namespace ServiceApotheke.API.Controllers
 {
@@ -77,19 +78,27 @@ namespace ServiceApotheke.API.Controllers
             var newStatus = dto.NewStatus;
 
             // 1. State Transition Validation
-            bool isValidTransition = (currentStatus == "Pending" && newStatus == "Accepted") ||
-                                     (currentStatus == "Accepted" && newStatus == "Completed") ||
-                                     (currentStatus == "Completed" && newStatus == "Invoiced");
+            bool isValidTransition = (currentStatus == JobApplicationStatus.Pending && newStatus == JobApplicationStatus.Accepted) ||
+                                     (currentStatus == JobApplicationStatus.Accepted && newStatus == JobApplicationStatus.Completed) ||
+                                     (currentStatus == JobApplicationStatus.Completed && newStatus == JobApplicationStatus.Invoiced);
 
             if (!isValidTransition)
             {
                 return BadRequest(new { message = $"Invalid state transition from '{currentStatus}' to '{newStatus}'." });
             }
 
+            if (newStatus == JobApplicationStatus.Completed)
+            {
+                if (application.JobPost?.EndDate != null && application.JobPost.EndDate > DateTime.UtcNow)
+                {
+                    return BadRequest(new { message = "Shift cannot be marked as completed before its end date." });
+                }
+            }
+
             // 2. Perform State Mutation
             application.Status = newStatus;
 
-            if (newStatus == "Accepted")
+            if (newStatus == JobApplicationStatus.Accepted)
             {
                 // Modify the JobPost to trigger Optimistic Concurrency Control (xmin)
                 if (application.JobPost.Status != "Active")
@@ -103,7 +112,7 @@ namespace ServiceApotheke.API.Controllers
             Invoice? newInvoice = null;
             Timesheet? timesheet = null;
 
-            if (newStatus == "Invoiced")
+            if (newStatus == JobApplicationStatus.Invoiced)
             {
                 timesheet = await _context.Timesheets.FirstOrDefaultAsync(t => t.JobApplicationId == applicationId);
                 if (timesheet == null)
@@ -148,7 +157,7 @@ namespace ServiceApotheke.API.Controllers
             }
 
             // 3. Event Notification (SMTP)
-            if (newStatus == "Accepted" && application.JobPost?.Pharmacy != null && application.Pharmacist != null)
+            if (newStatus == JobApplicationStatus.Accepted && application.JobPost?.Pharmacy != null && application.Pharmacist != null)
             {
                 var pharmacy = application.JobPost.Pharmacy;
                 var pharmacist = application.Pharmacist;
@@ -203,7 +212,7 @@ Der Einsatz erfolgt als freier Mitarbeiter (Honorarvertretung). Der Auftragnehme
                 _ = _emailService.SendEmailAsync(pharmacist.Email, pharmacistSubject, pharmacistMessage);
                 _ = _emailService.SendEmailAsync(pharmacy.Email, pharmacySubject, pharmacyMessage);
             }
-            else if (newStatus == "Invoiced")
+            else if (newStatus == JobApplicationStatus.Invoiced)
             {
                 // The actual invoice generation and PDF storage is handled exclusively by TimesheetController.Approve
                 // We just send a notification email here.

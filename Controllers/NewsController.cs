@@ -9,10 +9,17 @@ namespace ServiceApotheke.API.Controllers
     [Authorize] // Require authentication (Pharmacist or Pharmacy)
     public class NewsController : ControllerBase
     {
-        [HttpGet]
-        public IActionResult GetNews()
+        private readonly NewsRssService _newsService;
+
+        public NewsController(NewsRssService newsService)
         {
-            var news = NewsRssService.GetLatestNews();
+            _newsService = newsService;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetNews(CancellationToken cancellationToken)
+        {
+            var news = await _newsService.GetLatestNewsAsync(cancellationToken);
             return Ok(news);
         }
     }
