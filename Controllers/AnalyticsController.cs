@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiceApotheke.API.Data;
+using ServiceApotheke.API.Domain.Constants;
 
 namespace ServiceApotheke.API.Controllers
 {
@@ -54,9 +55,9 @@ namespace ServiceApotheke.API.Controllers
 
             // 1. Vermittlungs-KPIs
             var totalJobs = await _context.JobPosts.CountAsync();
-            stats.TotalOpenJobs = await _context.JobPosts.CountAsync(j => j.Status == "Active");
+            stats.TotalOpenJobs = await _context.JobPosts.CountAsync(j => j.Status == JobPostStatus.Active);
             
-            var filledJobs = await _context.JobPosts.CountAsync(j => j.Status == "Filled");
+            var filledJobs = await _context.JobPosts.CountAsync(j => j.Status == JobPostStatus.Filled);
             stats.FillRatePercentage = totalJobs > 0 ? (double)filledJobs / totalJobs * 100.0 : 0;
 
             // Durchschnittliche Vermittlungsdauer für Jobs, die Filled sind.
@@ -68,7 +69,8 @@ namespace ServiceApotheke.API.Controllers
             // oder direkte math. operationen für DateTime in PostgreSQL unterstützt, nutzen wir TimeSpan extraction.
             // Um absolut sicher zu sein, dass es nativ übersetzt wird:
             var placementTimes = await _context.JobApplications
-                .Where(a => a.Status == "Accepted" || a.Status == "Completed" || a.Status == "Invoiced")
+                .Include(a => a.JobPost)
+                .Where(a => a.Status == JobApplicationStatus.Accepted || a.Status == JobApplicationStatus.Completed || a.Status == JobApplicationStatus.Invoiced)
                 .Select(a => EF.Functions.DateDiffHour(a.JobPost!.CreatedAt, a.AppliedAt))
                 .ToListAsync();
 

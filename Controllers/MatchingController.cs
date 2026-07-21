@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using ServiceApotheke.API.Data;
 using ServiceApotheke.API.Models;
 using ServiceApotheke.API.Services;
+using ServiceApotheke.API.Domain.Constants;
 
 namespace ServiceApotheke.API.Controllers
 {
@@ -96,7 +97,7 @@ namespace ServiceApotheke.API.Controllers
             // Execute Matching
             var activeJobPosts = await _dbContext.JobPosts
                 .Include(j => j.Pharmacy)
-                .Where(j => j.Status == "Open" || j.Status == "Active")
+                .Where(j => j.Status == JobPostStatus.Open || j.Status == JobPostStatus.Active)
                 .ToListAsync(ct);
 
             var matches = activeJobPosts

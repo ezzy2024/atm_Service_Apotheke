@@ -20,6 +20,7 @@ namespace ServiceApotheke.API.Controllers.PDL
     [ApiController]
     [Route("api/pdl")]
     [Authorize(Roles = "Pharmacy")]
+    [ServiceApotheke.API.Filters.PremiumFeature]
     public class PdlController : ControllerBase
     {
         private readonly DataContext _context;

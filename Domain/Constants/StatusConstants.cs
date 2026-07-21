@@ -15,4 +15,18 @@ namespace ServiceApotheke.API.Domain.Constants
         public const string Approved = "Approved";
         public const string Disputed = "Disputed";
     }
+
+    public static class JobPostStatus
+    {
+        public const string Active = "Active";
+        public const string Open = "Open";
+        public const string Filled = "Filled";
+        public const string Cancelled = "Cancelled";
+    }
+
+    public static class TerminalStatus
+    {
+        public const string Active = "active";
+        public const string Inactive = "inactive";
+    }
 }

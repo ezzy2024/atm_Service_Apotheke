@@ -26,6 +26,7 @@ namespace ServiceApotheke.API.Models
         public string LicenseNumber { get; set; } = string.Empty;
 
         public bool IsEmailConfirmed { get; set; }
+        public bool HasPremiumAccess { get; set; }
 
         // Stripe Subscription
         public string? StripeCustomerId { get; set; }

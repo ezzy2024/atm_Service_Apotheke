@@ -51,7 +51,7 @@ namespace ServiceApotheke.API.Controllers
             {
                 JobPostId = jobId,
                 PharmacistId = dto.PharmacistId,
-                Status = "Pending",
+                Status = JobApplicationStatus.Pending,
                 AppliedAt = DateTime.UtcNow
             };
             
@@ -101,12 +101,15 @@ namespace ServiceApotheke.API.Controllers
             if (newStatus == JobApplicationStatus.Accepted)
             {
                 // Modify the JobPost to trigger Optimistic Concurrency Control (xmin)
-                if (application.JobPost.Status != "Active")
+                if (application.JobPost != null)
                 {
-                    return Conflict(new { message = "The shift is no longer active." });
+                    if (application.JobPost.Status != JobPostStatus.Active)
+                    {
+                        return Conflict(new { message = "The shift is no longer active." });
+                    }
+                    
+                    application.JobPost.Status = JobPostStatus.Filled;
                 }
-                
-                application.JobPost.Status = "Filled";
             }
 
             Invoice? newInvoice = null;

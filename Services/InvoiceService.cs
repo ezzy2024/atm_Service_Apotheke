@@ -172,7 +172,7 @@ namespace ServiceApotheke.API.Services
                     }
                     else
                     {
-                        table.Cell().Text($"Apothekerische Dienstleistung ({timesheet.ActualStartTime:dd.MM.yyyy})");
+                        table.Cell().Text($"Apothekerische Dienstleistung ({timesheet.ActualStartDate:dd.MM.yyyy})");
                         table.Cell().AlignRight().Text($"{hours:F2} Std.");
                         table.Cell().AlignRight().Text($"{timesheet.HourlyRate:C}");
                         table.Cell().AlignRight().Text($"{labor:C}");

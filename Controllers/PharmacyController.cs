@@ -127,7 +127,8 @@ namespace ServiceApotheke.API.Controllers
                     new Claim("id", pharmacy.Id.ToString()),
                     new Claim(ClaimTypes.Email, pharmacy.Email),
                     new Claim(ClaimTypes.Role, "Pharmacy"),
-                    new Claim("SessionVersion", pharmacy.SessionVersion.ToString())
+                    new Claim("SessionVersion", pharmacy.SessionVersion.ToString()),
+                    new Claim("HasPremiumAccess", pharmacy.HasPremiumAccess.ToString())
                 }),
                 Expires = DateTime.UtcNow.AddHours(2),
                 Issuer = "ServiceApotheke.API",
@@ -188,7 +189,8 @@ namespace ServiceApotheke.API.Controllers
                     new Claim("id", pharmacy.Id.ToString()),
                     new Claim(ClaimTypes.Email, pharmacy.Email),
                     new Claim(ClaimTypes.Role, "Pharmacy"),
-                    new Claim("SessionVersion", pharmacy.SessionVersion.ToString())
+                    new Claim("SessionVersion", pharmacy.SessionVersion.ToString()),
+                    new Claim("HasPremiumAccess", pharmacy.HasPremiumAccess.ToString())
                 }),
                 Expires = DateTime.UtcNow.AddHours(2),
                 Issuer = "ServiceApotheke.API",
