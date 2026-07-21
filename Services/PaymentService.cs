@@ -79,9 +79,9 @@ namespace ServiceApotheke.API.Services
         }
         public async Task<Transfer> ReleaseEscrowAsync(InternalShift shift, Timesheet timesheet)
         {
-            if (shift.EscrowStatus != "Held" && shift.EscrowStatus != "Pending")
+            if (shift.EscrowStatus != "Held")
             {
-                throw new System.InvalidOperationException($"Escrow release failed. Current status is {shift.EscrowStatus}. Expected 'Held' or 'Pending'.");
+                throw new System.InvalidOperationException($"Escrow release failed. Current status is {shift.EscrowStatus}. Expected 'Held'.");
             }
 
             var pharmacist = timesheet.JobApplication?.Pharmacist;
