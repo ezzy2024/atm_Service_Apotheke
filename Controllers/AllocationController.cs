@@ -87,6 +87,25 @@ namespace ServiceApotheke.API.Controllers
                 return BadRequest(new { message = $"Invalid state transition from '{currentStatus}' to '{newStatus}'." });
             }
 
+            if (newStatus == JobApplicationStatus.Accepted)
+            {
+                var hasOverlap = await _context.JobApplications
+                    .Include(a => a.JobPost)
+                    .AnyAsync(a => 
+                        a.PharmacistId == application.PharmacistId && 
+                        a.Id != application.Id && 
+                        (a.Status == JobApplicationStatus.Accepted || a.Status == JobApplicationStatus.Completed) &&
+                        a.JobPost != null && application.JobPost != null &&
+                        a.JobPost.StartDate < application.JobPost.EndDate && 
+                        a.JobPost.EndDate > application.JobPost.StartDate
+                    );
+
+                if (hasOverlap)
+                {
+                    return BadRequest(new { message = "Pharmacist already has an accepted or completed shift that overlaps with this time period." });
+                }
+            }
+
             if (newStatus == JobApplicationStatus.Completed)
             {
                 if (application.JobPost?.EndDate != null && application.JobPost.EndDate > DateTime.UtcNow)
