@@ -14,6 +14,7 @@ using System;
 using System.Threading.Tasks;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
+using ServiceApotheke.API.Domain.Constants;
 
 namespace ServiceApotheke.API.Controllers
 {
@@ -257,10 +258,12 @@ namespace ServiceApotheke.API.Controllers
             var apps = await _context.JobApplications
                 .Include(a => a.JobPost!)
                     .ThenInclude(jp => jp.Pharmacy!)
-                .Where(a => a.PharmacistId == id && (a.Status == "Accepted" || a.Status == "Completed" || a.Status == "Invoiced") && a.JobPost != null)
+                .Include(a => a.Timesheet)
+                .Where(a => a.PharmacistId == id && (a.Status == JobApplicationStatus.Accepted || a.Status == JobApplicationStatus.Completed || a.Status == JobApplicationStatus.Invoiced) && a.JobPost != null)
                 .Select(a => new {
                     Id = a.Id,
                     Status = a.Status,
+                    TimesheetStatus = a.Timesheet != null ? a.Timesheet.Status : null,
                     JobPost = new {
                         Title = a.JobPost!.Title,
                         StartDate = a.JobPost.StartDate,
@@ -280,12 +283,15 @@ namespace ServiceApotheke.API.Controllers
             var apps = await _context.JobApplications
                 .Include(a => a.JobPost!)
                     .ThenInclude(jp => jp.Pharmacy!)
-                .Where(a => a.PharmacistId == id && a.Status == "Accepted" && a.JobPost != null)
+                .Include(a => a.Timesheet)
+                .Where(a => a.PharmacistId == id && a.Status == JobApplicationStatus.Accepted && a.JobPost != null)
                 .ToListAsync();
 
-            var upcoming = apps.Where(a => a.Status == "Accepted" && a.JobPost!.StartDate > DateTime.UtcNow)
+            var upcoming = apps.Where(a => a.Status == JobApplicationStatus.Accepted && a.JobPost!.StartDate > DateTime.UtcNow)
                 .Select(a => new {
                     Id = a.Id,
+                    Status = a.Status,
+                    TimesheetStatus = a.Timesheet != null ? a.Timesheet.Status : null,
                     StartDate = a.JobPost!.StartDate,
                     EndDate = a.JobPost.EndDate,
                     Salary = a.JobPost.Salary,
@@ -302,10 +308,23 @@ namespace ServiceApotheke.API.Controllers
             var apps = await _context.JobApplications
                 .Include(a => a.JobPost!)
                     .ThenInclude(jp => jp.Pharmacy!)
-                .Where(a => a.PharmacistId == id && a.Status == "Accepted" && a.JobPost != null)
+                .Include(a => a.Timesheet)
+                .Where(a => a.PharmacistId == id && a.Status == JobApplicationStatus.Accepted && a.JobPost != null)
                 .ToListAsync();
 
-            var completed = apps.Where(a => a.Status == "Accepted" && a.JobPost!.EndDate < DateTime.UtcNow).ToList();
+            var completed = apps.Where(a => a.Status == JobApplicationStatus.Accepted && a.JobPost!.EndDate < DateTime.UtcNow)
+                .Select(a => new {
+                    Id = a.Id,
+                    Status = a.Status,
+                    TimesheetStatus = a.Timesheet != null ? a.Timesheet.Status : null,
+                    JobPost = new {
+                        Title = a.JobPost!.Title,
+                        StartDate = a.JobPost.StartDate,
+                        EndDate = a.JobPost.EndDate,
+                        Salary = a.JobPost.Salary,
+                        Pharmacy = new { PharmacyName = a.JobPost.Pharmacy!.PharmacyName }
+                    }
+                }).ToList();
             return Ok(completed);
         }
 
