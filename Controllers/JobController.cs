@@ -2,10 +2,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ServiceApotheke.API.Models;
+using ServiceApotheke.API.Models.DTOs;
 using ServiceApotheke.API.Data;
-using System;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Collections.Generic;
+using ServiceApotheke.API.Domain.Constants;
 
 namespace ServiceApotheke.API.Controllers
 {
@@ -21,6 +23,81 @@ namespace ServiceApotheke.API.Controllers
             _context = context;
         }
 
+        private MaskedPharmacistDto MapToPharmacistDto(Pharmacist p, bool isAccepted)
+        {
+            var nameParts = p.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var firstName = nameParts.Length > 0 ? nameParts[0] : "";
+            var lastName = nameParts.Length > 1 ? nameParts.Last() : "";
+            var initial = string.IsNullOrEmpty(lastName) ? "" : lastName.Substring(0, 1);
+            
+            var dto = new MaskedPharmacistDto
+            {
+                Id = p.Id,
+                FirstName = firstName,
+                LastNameInitial = initial,
+                HourlyRate = p.HourlyRate,
+                ExperienceYears = p.ExperienceYears,
+                Qualification = p.Qualification,
+                WwsProficiency = p.WwsProficiency,
+                ProfilePicturePath = p.ProfilePicturePath,
+                ApprobationDocumentPath = p.ApprobationDocumentPath,
+                CvDocumentPath = p.CvDocumentPath
+            };
+            
+            if (isAccepted)
+            {
+                dto.LastName = lastName;
+                dto.Email = p.Email;
+                dto.PhoneNumber = p.PhoneNumber;
+            }
+            return dto;
+        }
+
+        private MaskedPharmacyDto MapToPharmacyDto(Pharmacy p, bool isAccepted)
+        {
+            var postalPrefix = !string.IsNullOrEmpty(p.PostalCode) && p.PostalCode.Length >= 2 
+                ? p.PostalCode.Substring(0, 2) + "***" 
+                : "";
+                
+            var dto = new MaskedPharmacyDto
+            {
+                Id = p.Id,
+                City = p.City,
+                PostalCodePrefix = postalPrefix,
+                TargetHourlyRate = p.TargetHourlyRate
+            };
+            
+            if (isAccepted)
+            {
+                dto.PharmacyName = p.PharmacyName;
+                dto.Email = p.Email;
+                dto.PhoneNumber = p.PhoneNumber;
+                dto.Street = p.Street;
+                dto.HouseNumber = p.HouseNumber;
+                dto.PostalCode = p.PostalCode;
+            }
+            return dto;
+        }
+
+        private MaskedJobPostDto MapToJobPostDto(JobPost j, bool isAccepted)
+        {
+            return new MaskedJobPostDto
+            {
+                Id = j.Id,
+                PharmacyId = j.PharmacyId,
+                Title = j.Title,
+                Description = j.Description,
+                StartDate = j.StartDate,
+                EndDate = j.EndDate,
+                Salary = j.Salary,
+                Status = j.Status,
+                RequiredQualifications = j.RequiredQualifications,
+                CreatedAt = j.CreatedAt,
+                HasApplied = j.HasApplied,
+                Pharmacy = j.Pharmacy != null ? MapToPharmacyDto(j.Pharmacy, isAccepted) : null
+            };
+        }
+
         [HttpGet("available")]
         public async Task<IActionResult> GetAvailableJobs()
         {
@@ -32,15 +109,28 @@ namespace ServiceApotheke.API.Controllers
                 .ToListAsync();
 
             var userIdClaim = User.FindFirst("id")?.Value;
+            var dtos = new List<MaskedJobPostDto>();
+            
             if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out int pid))
             {
                 foreach (var job in jobs)
                 {
                     job.HasApplied = job.JobApplications.Any(a => a.PharmacistId == pid);
+                    
+                    // The job listing board NEVER shows full pharmacy details, even if applied.
+                    // Full details are only shown in the Application view if Accepted.
+                    dtos.Add(MapToJobPostDto(job, isAccepted: false)); 
+                }
+            }
+            else
+            {
+                foreach (var job in jobs)
+                {
+                    dtos.Add(MapToJobPostDto(job, isAccepted: false));
                 }
             }
 
-            return Ok(jobs);
+            return Ok(dtos);
         }
 
         [HttpGet("pharmacy/{pharmacyId}")]
@@ -48,10 +138,35 @@ namespace ServiceApotheke.API.Controllers
         {
             var jobs = await _context.JobPosts
                 .Include(j => j.JobApplications)
+                    .ThenInclude(a => a.Pharmacist)
                 .Where(j => j.PharmacyId == pharmacyId)
                 .OrderByDescending(j => j.StartDate)
                 .ToListAsync();
-            return Ok(jobs);
+
+            var dtos = jobs.Select(j => new
+            {
+                id = j.Id,
+                title = j.Title,
+                description = j.Description,
+                startDate = j.StartDate,
+                endDate = j.EndDate,
+                salary = j.Salary,
+                status = j.Status,
+                requiredQualifications = j.RequiredQualifications,
+                createdAt = j.CreatedAt,
+                jobApplications = j.JobApplications.Select(a => new ServiceApotheke.API.Models.DTOs.JobApplicationDto
+                {
+                    Id = a.Id,
+                    JobPostId = a.JobPostId,
+                    PharmacistId = a.PharmacistId,
+                    Status = a.Status,
+                    AppliedAt = a.AppliedAt,
+                    JobPost = null,
+                    Pharmacist = a.Pharmacist != null ? MapToPharmacistDto(a.Pharmacist, a.Status == JobApplicationStatus.Accepted || a.Status == JobApplicationStatus.Completed || a.Status == JobApplicationStatus.Invoiced) : null
+                }).ToList()
+            });
+
+            return Ok(dtos);
         }
 
         [HttpGet("test-matching/{pharmacistId}")]
@@ -138,7 +253,6 @@ namespace ServiceApotheke.API.Controllers
         [HttpPost("JobApplication/apply")]
         public async Task<IActionResult> ApplyForJob([FromBody] JobApplication application)
         {
-            // 1. AÜG & Liability Compliance Gate: Verify KYC Status
             var pharmacist = await _context.Pharmacists.FindAsync(application.PharmacistId);
             if (pharmacist == null)
                 return NotFound(new { message = "Apotheker-Profil nicht gefunden." });
@@ -150,11 +264,9 @@ namespace ServiceApotheke.API.Controllers
                 });
             }
 
-            // 2. Prevent Duplicate Applications
             if (await _context.JobApplications.AnyAsync(a => a.JobPostId == application.JobPostId && a.PharmacistId == application.PharmacistId))
                 return BadRequest(new { message = "Bereits beworben." });
 
-            // 3. Execute Application
             application.AppliedAt = DateTime.UtcNow;
             application.Status = "Pending";
             _context.JobApplications.Add(application);
@@ -171,7 +283,18 @@ namespace ServiceApotheke.API.Controllers
                 .Where(a => a.PharmacistId == pharmacistId && a.JobPost != null)
                 .OrderByDescending(a => a.AppliedAt)
                 .ToListAsync();
-            return Ok(apps);
+                
+            var dtos = apps.Select(a => new ServiceApotheke.API.Models.DTOs.JobApplicationDto
+            {
+                Id = a.Id,
+                JobPostId = a.JobPostId,
+                PharmacistId = a.PharmacistId,
+                Status = a.Status,
+                AppliedAt = a.AppliedAt,
+                JobPost = a.JobPost != null ? MapToJobPostDto(a.JobPost, a.Status == JobApplicationStatus.Accepted || a.Status == JobApplicationStatus.Completed || a.Status == JobApplicationStatus.Invoiced) : null
+            }).ToList();
+            
+            return Ok(dtos);
         }
 
         [HttpGet("JobApplication/pharmacy/{pharmacyId}")]
@@ -183,7 +306,19 @@ namespace ServiceApotheke.API.Controllers
                 .Where(a => a.JobPost != null && a.JobPost!.PharmacyId == pharmacyId)
                 .OrderByDescending(a => a.AppliedAt)
                 .ToListAsync();
-            return Ok(apps);
+                
+            var dtos = apps.Select(a => new ServiceApotheke.API.Models.DTOs.JobApplicationDto
+            {
+                Id = a.Id,
+                JobPostId = a.JobPostId,
+                PharmacistId = a.PharmacistId,
+                Status = a.Status,
+                AppliedAt = a.AppliedAt,
+                JobPost = a.JobPost != null ? MapToJobPostDto(a.JobPost, true) : null, // Pharmacy can see their own full details
+                Pharmacist = a.Pharmacist != null ? MapToPharmacistDto(a.Pharmacist, a.Status == JobApplicationStatus.Accepted || a.Status == JobApplicationStatus.Completed || a.Status == JobApplicationStatus.Invoiced) : null
+            }).ToList();
+            
+            return Ok(dtos);
         }
 
         [HttpPut("JobApplication/{id}/status")]

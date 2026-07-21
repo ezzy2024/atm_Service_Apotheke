@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ServiceApotheke.API.Data;
 using ServiceApotheke.API.Models;
+using ServiceApotheke.API.Domain.Constants;
 
 namespace ServiceApotheke.API.Services.Workers
 {
@@ -55,9 +56,9 @@ namespace ServiceApotheke.API.Services.Workers
                         .ThenInclude(j => j!.Pharmacy)
                 .Include(t => t.JobApplication)
                     .ThenInclude(a => a!.Pharmacist)
-                .Where(t => t.Status == "Submitted" && 
+                .Where(t => t.Status == TimesheetStatus.Submitted && 
                             t.JobApplication != null && 
-                            t.JobApplication.Status == "Accepted" &&
+                            t.JobApplication.Status == JobApplicationStatus.Accepted &&
                             t.JobApplication.JobPost != null &&
                             t.JobApplication.JobPost.EndDate != null &&
                             t.JobApplication.JobPost.EndDate < DateTime.UtcNow)
@@ -74,8 +75,8 @@ namespace ServiceApotheke.API.Services.Workers
                 _logger.LogInformation($"Verifying shift for Timesheet ID {timesheet.Id}, JobApplication ID {app.Id}");
 
                 // Update Statuses
-                timesheet.Status = "Approved";
-                app.Status = "Completed";
+                timesheet.Status = TimesheetStatus.Approved;
+                app.Status = JobApplicationStatus.Completed;
 
                 // Generate Invoice ID
                 var invoice = new Invoice
