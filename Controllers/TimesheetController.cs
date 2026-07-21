@@ -247,7 +247,7 @@ namespace ServiceApotheke.API.Controllers
             // Execute Escrow Release
             try
             {
-                if (shift.EscrowStatus == "Held" || shift.EscrowStatus == "Pending")
+                if (shift.EscrowStatus == "Held")
                 {
                     var transfer = await _paymentService.ReleaseEscrowAsync(shift, timesheet);
                     shift.StripeTransferId = transfer.Id;
