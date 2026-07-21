@@ -131,7 +131,7 @@ else
 }
 builder.Services.AddScoped<IMatchingService, MatchingService>();
 builder.Services.AddScoped<IPdfGenerationService, TimesheetPdfGenerationService>();
-builder.Services.AddScoped<IPaymentService, PaymentService>();
+
 
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
 builder.Services.AddHttpClient<ServiceApotheke.API.Services.PDL.AiAnalysisService>();

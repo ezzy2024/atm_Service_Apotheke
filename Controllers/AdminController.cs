@@ -118,6 +118,21 @@ namespace ServiceApotheke.API.Controllers
             return Ok();
         }
 
+        public class PremiumAccessUpdateDto
+        {
+            public bool HasPremiumAccess { get; set; }
+        }
+
+        [HttpPatch("pharmacies/{id}/premium-access")]
+        public async Task<IActionResult> UpdatePremiumAccess(int id, [FromBody] PremiumAccessUpdateDto dto)
+        {
+            var p = await _context.Pharmacies.FindAsync(id);
+            if (p == null) return NotFound();
+            p.HasPremiumAccess = dto.HasPremiumAccess;
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
         [HttpGet("finance")]
         public async Task<IActionResult> GetFinanceAggregation()
         {
