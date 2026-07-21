@@ -9,6 +9,8 @@ using ServiceApotheke.API.Data;
 using ServiceApotheke.API.Models.ATM;
 using Microsoft.EntityFrameworkCore;
 using ServiceApotheke.API.Services;
+using ServiceApotheke.API.Models;
+using ServiceApotheke.API.Domain.Constants;
 
 namespace ServiceApotheke.API.Controllers.ATM
 {
@@ -106,7 +108,7 @@ namespace ServiceApotheke.API.Controllers.ATM
                 PharmacyId = pharmacy.Id,
                 Name = terminalName,
                 DeviceToken = deviceToken,
-                Status = "active"
+                Status = TerminalStatus.Active
             };
 
             _context.KioskTerminals.Add(terminal);
@@ -132,7 +134,7 @@ namespace ServiceApotheke.API.Controllers.ATM
             if (pharmacy == null) return Unauthorized();
 
             var terminals = await _context.KioskTerminals
-                .Where(t => t.PharmacyId == pharmacy.Id && t.Status == "active")
+                .Where(t => t.PharmacyId == pharmacy.Id && t.Status == TerminalStatus.Active)
                 .OrderByDescending(t => t.CreatedAt)
                 .Select(t => new { t.Id, t.Name, t.CreatedAt })
                 .ToListAsync();
@@ -154,7 +156,7 @@ namespace ServiceApotheke.API.Controllers.ATM
             var terminal = await _context.KioskTerminals.FirstOrDefaultAsync(t => t.Id == id && t.PharmacyId == pharmacy.Id);
             if (terminal == null) return NotFound();
 
-            terminal.Status = "revoked";
+            terminal.Status = TerminalStatus.Inactive;
             await _context.SaveChangesAsync();
 
             return Ok(new { success = true });

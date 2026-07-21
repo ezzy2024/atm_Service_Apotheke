@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiceApotheke.API.Data;
+using ServiceApotheke.API.Domain.Constants;
 using System;
 using System.Threading.Tasks;
 using System.Linq;
@@ -63,7 +64,7 @@ namespace ServiceApotheke.API.Controllers
 
             // Purge non-financial relational data (Pending/Rejected Applications)
             var purgeableApps = await _context.JobApplications
-                .Where(a => a.PharmacistId == id && (a.Status == "Pending" || a.Status == "Rejected"))
+                .Where(a => a.PharmacistId == id && (a.Status == JobApplicationStatus.Pending || a.Status == JobApplicationStatus.Rejected))
                 .ToListAsync();
             
             _context.JobApplications.RemoveRange(purgeableApps);

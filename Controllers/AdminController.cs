@@ -10,6 +10,7 @@ using System.Text;
 using System;
 using ServiceApotheke.API.Models;
 using Microsoft.AspNetCore.Authorization;
+using ServiceApotheke.API.Domain.Constants;
 
 namespace ServiceApotheke.API.Controllers
 {
@@ -202,7 +203,7 @@ namespace ServiceApotheke.API.Controllers
         {
             var threshold = DateTime.UtcNow.AddDays(-7);
             var staleTimesheets = await _context.Timesheets
-                .Where(t => t.Status == "Disputed" && t.DisputedAt != null && t.DisputedAt < threshold)
+                .Where(t => t.Status == TimesheetStatus.Disputed && t.DisputedAt != null && t.DisputedAt < threshold)
                 .ToListAsync();
 
             foreach (var ts in staleTimesheets)
@@ -220,7 +221,7 @@ namespace ServiceApotheke.API.Controllers
         {
             // Here we check for kiosks that are inactive or have revoked status
             var inactiveTerminals = await _context.KioskTerminals
-                .Where(k => k.Status != "active")
+                .Where(k => k.Status != TerminalStatus.Active)
                 .ToListAsync();
 
             foreach (var terminal in inactiveTerminals)

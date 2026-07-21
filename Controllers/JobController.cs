@@ -104,7 +104,7 @@ namespace ServiceApotheke.API.Controllers
             var jobs = await _context.JobPosts
                 .Include(j => j.Pharmacy)
                 .Include(j => j.JobApplications)
-                .Where(j => j.Status == "Active")
+                .Where(j => j.Status == JobPostStatus.Active)
                 .OrderByDescending(j => j.CreatedAt)
                 .ToListAsync();
 
@@ -201,7 +201,7 @@ namespace ServiceApotheke.API.Controllers
                 }
             }
             job.CreatedAt = DateTime.UtcNow;
-            job.Status = "Active";
+            job.Status = JobPostStatus.Active;
             
             // Auto-generate title
             string reason = string.IsNullOrEmpty(job.ReasonForVacancy) ? "Vertretung" : job.ReasonForVacancy;
@@ -268,7 +268,7 @@ namespace ServiceApotheke.API.Controllers
                 return BadRequest(new { message = "Bereits beworben." });
 
             application.AppliedAt = DateTime.UtcNow;
-            application.Status = "Pending";
+            application.Status = JobApplicationStatus.Pending;
             _context.JobApplications.Add(application);
             await _context.SaveChangesAsync();
             return Ok(application);

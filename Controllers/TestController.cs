@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace ServiceApotheke.API.Controllers
 {
+#if DEBUG
     [ApiController]
     [Route("api/[controller]")]
     public class TestController : ControllerBase
@@ -128,4 +129,5 @@ namespace ServiceApotheke.API.Controllers
             }
         }
     }
+#endif
 }

@@ -7,6 +7,7 @@ using System.Security.Claims;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using ServiceApotheke.API.Domain.Constants;
 namespace ServiceApotheke.API.Controllers
 {
     [ApiController]
@@ -70,7 +71,7 @@ namespace ServiceApotheke.API.Controllers
             if (jobPost == null)
                 return NotFound("Job nicht gefunden.");
 
-            var acceptedApp = jobPost.JobApplications.FirstOrDefault(a => a.Status == "Accepted");
+            var acceptedApp = jobPost.JobApplications.FirstOrDefault(a => a.Status == JobApplicationStatus.Accepted);
             if (acceptedApp == null)
                 return BadRequest("Kein Apotheker für diesen Job akzeptiert.");
 

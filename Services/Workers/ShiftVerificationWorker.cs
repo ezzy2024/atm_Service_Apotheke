@@ -58,7 +58,7 @@ namespace ServiceApotheke.API.Services.Workers
                     .ThenInclude(a => a!.Pharmacist)
                 .Where(t => t.Status == TimesheetStatus.Submitted && 
                             t.JobApplication != null && 
-                            t.JobApplication.Status == JobApplicationStatus.Accepted &&
+                            (t.JobApplication.Status == JobApplicationStatus.Accepted || t.JobApplication.Status == JobApplicationStatus.Completed) &&
                             t.JobApplication.JobPost != null &&
                             t.JobApplication.JobPost.EndDate != null &&
                             t.JobApplication.JobPost.EndDate < DateTime.UtcNow)
@@ -101,20 +101,38 @@ namespace ServiceApotheke.API.Services.Workers
                     pharmacist
                 );
 
-                // Upload PDF to GCS
+                // Upload PDF to GCS with fallback to local storage
                 var gcsService = scope.ServiceProvider.GetService<IGoogleCloudStorageService>();
+                string fileName = $"invoices/INV-{DateTime.UtcNow:yyyy}-{invoice.Id:D6}.pdf";
+                bool uploadedToGcs = false;
+
                 if (gcsService != null)
                 {
-                    string fileName = $"invoices/INV-{DateTime.UtcNow:yyyy}-{invoice.Id:D6}.pdf";
-                    using var stream = new System.IO.MemoryStream(pdfBytes);
-                    string gcsPath = await gcsService.UploadDocumentAsync(stream, fileName, "application/pdf");
-                    invoice.PdfFilePath = gcsPath;
-                    await context.SaveChangesAsync();
+                    try
+                    {
+                        using var stream = new System.IO.MemoryStream(pdfBytes);
+                        string gcsPath = await gcsService.UploadDocumentAsync(stream, fileName, "application/pdf");
+                        invoice.PdfFilePath = gcsPath;
+                        uploadedToGcs = true;
+                        _logger.LogInformation($"Successfully uploaded PDF to GCS for Invoice {invoice.Id}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, $"GCS upload failed for Invoice {invoice.Id}, falling back to local storage.");
+                    }
                 }
-                else
+
+                if (!uploadedToGcs)
                 {
-                    _logger.LogWarning("IGoogleCloudStorageService is not available. Invoice PDF not saved.");
+                    var localDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ServiceApothekeUploads", "invoices");
+                    System.IO.Directory.CreateDirectory(localDir);
+                    var localPath = System.IO.Path.Combine(localDir, $"INV-{DateTime.UtcNow:yyyy}-{invoice.Id:D6}.pdf");
+                    await System.IO.File.WriteAllBytesAsync(localPath, pdfBytes);
+                    invoice.PdfFilePath = $"invoices/INV-{DateTime.UtcNow:yyyy}-{invoice.Id:D6}.pdf";
+                    _logger.LogInformation($"Successfully saved PDF to local fallback storage for Invoice {invoice.Id}");
                 }
+                
+                await context.SaveChangesAsync();
             }
         }
     }

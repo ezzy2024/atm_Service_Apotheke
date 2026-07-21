@@ -442,6 +442,7 @@ namespace ServiceApotheke.API.Controllers
             return File(stream, contentType);
         }
 
+#if DEBUG
         [AllowAnonymous]
         [HttpGet("test-seed")]
         public async Task<IActionResult> TestSeed()
@@ -518,6 +519,7 @@ namespace ServiceApotheke.API.Controllers
 
             return Ok($"Test data seeded successfully! Timesheet ID: {timesheet.Id}");
         }
+#endif
     }
 
     public class EmailConfirmDto { public string Email { get; set; } = ""; public string Token { get; set; } = ""; }
