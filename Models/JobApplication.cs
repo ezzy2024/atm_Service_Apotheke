@@ -17,5 +17,7 @@ namespace ServiceApotheke.API.Models
         public virtual JobPost? JobPost { get; set; }
         [JsonIgnore]
         public virtual Pharmacist? Pharmacist { get; set; }
+        [JsonIgnore]
+        public virtual Timesheet? Timesheet { get; set; }
     }
 }
