@@ -171,7 +171,7 @@ Der Einsatz erfolgt als freier Mitarbeiter (Honorarvertretung). Der Auftragnehme
                     var pharmacy = application.JobPost.Pharmacy;
                     
                     // Generate PDF dynamically in-memory
-                    var pdfBytes = _invoiceService.GeneratePharmacyInvoice(
+                    var pdfBytes = _invoiceService.GeneratePlatformCommissionInvoice(
                         newInvoice.Id, 
                         timesheet, 
                         pharmacy.PharmacyName, 
