@@ -118,6 +118,21 @@ namespace ServiceApotheke.API.Controllers
             return Ok();
         }
 
+        public class PremiumAccessUpdateDto
+        {
+            public bool HasPremiumAccess { get; set; }
+        }
+
+        [HttpPatch("pharmacies/{id}/premium-access")]
+        public async Task<IActionResult> UpdatePremiumAccess(int id, [FromBody] PremiumAccessUpdateDto dto)
+        {
+            var p = await _context.Pharmacies.FindAsync(id);
+            if (p == null) return NotFound();
+            p.HasPremiumAccess = dto.HasPremiumAccess;
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
         [HttpGet("finance")]
         public async Task<IActionResult> GetFinanceAggregation()
         {
@@ -396,6 +411,35 @@ namespace ServiceApotheke.API.Controllers
                 errorCount,
                 errors
             });
+        }
+        [HttpPatch("invoices/{id}/mark-paid")]
+        public async Task<IActionResult> MarkInvoicePaid(int id)
+        {
+            var invoice = await _context.Invoices
+                .Include(i => i.Timesheet)
+                    .ThenInclude(t => t.JobApplication)
+                        .ThenInclude(ja => ja.JobPost)
+                .FirstOrDefaultAsync(i => i.Id == id);
+
+            if (invoice == null) return NotFound(new { message = "Invoice not found." });
+
+            invoice.Status = "Paid";
+            invoice.PaidAt = DateTime.UtcNow;
+
+            if (invoice.Timesheet != null && invoice.Timesheet.JobApplication?.JobPost != null)
+            {
+                var timesheet = invoice.Timesheet;
+                var shift = await _context.InternalShifts
+                    .FirstOrDefaultAsync(s => s.Date.Date == timesheet.ActualStartDate.Date && s.PharmacyId == timesheet.JobApplication.JobPost.PharmacyId);
+                
+                if (shift != null)
+                {
+                    shift.PaymentStatus = "Paid";
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Invoice and shift payment status marked as paid." });
         }
     }
 }

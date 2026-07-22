@@ -20,14 +20,12 @@ namespace ServiceApotheke.API.Controllers
         private readonly DataContext _context;
         private readonly IPdfGenerationService _pdfGenerationService;
         private readonly ICryptographicStorageService _cryptoStorageService;
-        private readonly IPaymentService _paymentService;
 
-        public TimesheetController(DataContext context, IPdfGenerationService pdfGenerationService, ICryptographicStorageService cryptoStorageService, IPaymentService paymentService)
+        public TimesheetController(DataContext context, IPdfGenerationService pdfGenerationService, ICryptographicStorageService cryptoStorageService)
         {
             _context = context;
             _pdfGenerationService = pdfGenerationService;
             _cryptoStorageService = cryptoStorageService;
-            _paymentService = paymentService;
         }
 
         [HttpGet("pending/pharmacy/{pharmacyId}")]
@@ -244,21 +242,9 @@ namespace ServiceApotheke.API.Controllers
             timesheet.DigitalSignatureHash = documentHash;
             timesheet.Status = TimesheetStatus.Approved;
 
-            // Execute Escrow Release
-            try
+            if (shift != null)
             {
-                if (shift.EscrowStatus == "Held")
-                {
-                    var transfer = await _paymentService.ReleaseEscrowAsync(shift, timesheet);
-                    shift.StripeTransferId = transfer.Id;
-                    shift.EscrowStatus = "Released";
-                }
-            }
-            catch (Exception ex)
-            {
-                // In production, log this and potentially push to a retry queue or alert Admin
-                shift.EscrowStatus = "Failed";
-                Console.WriteLine($"[Escrow Release Failed] Shift {shift.Id}: {ex.Message}");
+                shift.PaymentStatus = "Invoiced";
             }
 
             await _context.SaveChangesAsync();

@@ -14,10 +14,7 @@ namespace ServiceApotheke.API.Models
         
         public bool IsEmergencyDuty { get; set; } = false; // Notdienst flag
         
-        // Stripe Connect fields
-        public string? StripePaymentIntentId { get; set; }
-        public string? StripeTransferId { get; set; }
-        public string EscrowStatus { get; set; } = "Pending"; // Pending, Held, PayoutCompleted
+        public string PaymentStatus { get; set; } = "Pending"; // Pending, Invoiced, Paid
         
         public string? RateNegotiatedBy { get; set; } // e.g. "Pharmacy", "Pharmacist"
         public DateTime? AcceptedAt { get; set; }
