@@ -7,18 +7,12 @@ using Microsoft.EntityFrameworkCore;
 using ServiceApotheke.API.Data;
 using ServiceApotheke.API.Models;
 using ServiceApotheke.API.Services;
-using ServiceApotheke.API.Domain.Constants;
 
 namespace ServiceApotheke.API.Controllers
 {
     public class ShiftStatusUpdateDto
     {
         public string NewStatus { get; set; } = string.Empty;
-    }
-
-    public class ApplyDto
-    {
-        public int PharmacistId { get; set; }
     }
 
     [ApiController]
@@ -35,29 +29,6 @@ namespace ServiceApotheke.API.Controllers
             _context = context;
             _emailService = emailService;
             _invoiceService = invoiceService;
-        }
-
-        [HttpPost("{jobId}/apply")]
-        public async Task<IActionResult> Apply(int jobId, [FromBody] ApplyDto dto)
-        {
-            // Check if already applied
-            var existing = await _context.JobApplications
-                .FirstOrDefaultAsync(a => a.JobPostId == jobId && a.PharmacistId == dto.PharmacistId);
-            
-            if (existing != null)
-                return Conflict(new { message = "Already applied to this shift." });
-
-            var application = new JobApplication
-            {
-                JobPostId = jobId,
-                PharmacistId = dto.PharmacistId,
-                Status = JobApplicationStatus.Pending,
-                AppliedAt = DateTime.UtcNow
-            };
-            
-            _context.JobApplications.Add(application);
-            await _context.SaveChangesAsync();
-            return Ok(application);
         }
 
         [HttpPut("shift/{applicationId}/status")]
@@ -78,63 +49,47 @@ namespace ServiceApotheke.API.Controllers
             var newStatus = dto.NewStatus;
 
             // 1. State Transition Validation
-            bool isValidTransition = (currentStatus == JobApplicationStatus.Pending && newStatus == JobApplicationStatus.Accepted) ||
-                                     (currentStatus == JobApplicationStatus.Accepted && newStatus == JobApplicationStatus.Completed) ||
-                                     (currentStatus == JobApplicationStatus.Completed && newStatus == JobApplicationStatus.Invoiced);
+            bool isValidTransition = (currentStatus == "Pending" && newStatus == "Accepted") ||
+                                     (currentStatus == "Accepted" && newStatus == "Completed") ||
+                                     (currentStatus == "Completed" && newStatus == "Invoiced");
 
             if (!isValidTransition)
             {
                 return BadRequest(new { message = $"Invalid state transition from '{currentStatus}' to '{newStatus}'." });
             }
 
-            if (newStatus == JobApplicationStatus.Accepted)
-            {
-                var hasOverlap = await _context.JobApplications
-                    .Include(a => a.JobPost)
-                    .AnyAsync(a => 
-                        a.PharmacistId == application.PharmacistId && 
-                        a.Id != application.Id && 
-                        (a.Status == JobApplicationStatus.Accepted || a.Status == JobApplicationStatus.Completed) &&
-                        a.JobPost != null && application.JobPost != null &&
-                        a.JobPost.StartDate < application.JobPost.EndDate && 
-                        a.JobPost.EndDate > application.JobPost.StartDate
-                    );
-
-                if (hasOverlap)
-                {
-                    return BadRequest(new { message = "Pharmacist already has an accepted or completed shift that overlaps with this time period." });
-                }
-            }
-
-            if (newStatus == JobApplicationStatus.Completed)
-            {
-                if (application.JobPost?.EndDate != null && application.JobPost.EndDate > DateTime.UtcNow)
-                {
-                    return BadRequest(new { message = "Shift cannot be marked as completed before its end date." });
-                }
-            }
-
             // 2. Perform State Mutation
             application.Status = newStatus;
 
-            if (newStatus == JobApplicationStatus.Accepted)
+            if (newStatus == "Accepted")
             {
                 // Modify the JobPost to trigger Optimistic Concurrency Control (xmin)
-                if (application.JobPost != null)
+                if (application.JobPost.Status != "Active")
                 {
-                    if (application.JobPost.Status != JobPostStatus.Active)
-                    {
-                        return Conflict(new { message = "The shift is no longer active." });
-                    }
-                    
-                    application.JobPost.Status = JobPostStatus.Filled;
+                    return Conflict(new { message = "The shift is no longer active." });
                 }
+                
+                // Overlap Validation
+                bool hasOverlap = await _context.JobApplications
+                    .Include(a => a.JobPost)
+                    .AnyAsync(a => a.PharmacistId == application.PharmacistId
+                                && a.Id != applicationId
+                                && (a.Status == "Accepted" || a.Status == "Completed" || a.Status == "Invoiced")
+                                && a.JobPost.StartDate < application.JobPost.EndDate 
+                                && a.JobPost.EndDate > application.JobPost.StartDate);
+
+                if (hasOverlap)
+                {
+                    return BadRequest(new { message = "Pharmacist is already booked for an overlapping shift." });
+                }
+
+                application.JobPost.Status = "Filled";
             }
 
             Invoice? newInvoice = null;
             Timesheet? timesheet = null;
 
-            if (newStatus == JobApplicationStatus.Invoiced)
+            if (newStatus == "Invoiced")
             {
                 timesheet = await _context.Timesheets.FirstOrDefaultAsync(t => t.JobApplicationId == applicationId);
                 if (timesheet == null)
@@ -143,8 +98,8 @@ namespace ServiceApotheke.API.Controllers
                 }
 
                 // Calculate total amount
-                var totalHours = (decimal)(timesheet.ActualEndTime - timesheet.ActualStartTime).TotalHours - (timesheet.BreaksMinutes / 60m);
-                if (totalHours < 0) totalHours += 24m; // naive wrap for overnight shifts
+                var totalHours = (decimal)(timesheet.ActualEndTime - timesheet.ActualStartTime).TotalHours;
+                if (totalHours < 0) totalHours += 24m;
                 var laborCost = totalHours * timesheet.HourlyRate;
                 var platformFee = laborCost * 0.15m;
                 var totalAmount = laborCost + platformFee + timesheet.TravelCosts + timesheet.AccommodationCosts;
@@ -179,45 +134,16 @@ namespace ServiceApotheke.API.Controllers
             }
 
             // 3. Event Notification (SMTP)
-            if (newStatus == JobApplicationStatus.Accepted && application.JobPost?.Pharmacy != null && application.Pharmacist != null)
+            if (newStatus == "Accepted" && application.JobPost?.Pharmacy != null && application.Pharmacist != null)
             {
                 var pharmacy = application.JobPost.Pharmacy;
                 var pharmacist = application.Pharmacist;
-
-                string formattedDetails = application.JobPost.Description ?? "";
-                try
-                {
-                    if (formattedDetails.TrimStart().StartsWith("{"))
-                    {
-                        using var doc = System.Text.Json.JsonDocument.Parse(formattedDetails);
-                        var root = doc.RootElement;
-                        var detailsList = new System.Collections.Generic.List<string>();
-
-                        if (root.TryGetProperty("travelExpensePerKm", out var perKm) && perKm.ValueKind == System.Text.Json.JsonValueKind.Number)
-                            detailsList.Add($"- Fahrtkosten: {perKm.GetDecimal():0.00} €/km");
-
-                        if (root.TryGetProperty("travelExpenseCap", out var cap) && cap.ValueKind == System.Text.Json.JsonValueKind.Number)
-                            detailsList.Add($"- Maximale Fahrtkosten: {cap.GetDecimal():0.00} €");
-
-                        if (root.TryGetProperty("accommodation", out var acc) && acc.ValueKind == System.Text.Json.JsonValueKind.String && !string.IsNullOrEmpty(acc.GetString()))
-                            detailsList.Add($"- Übernachtung: {acc.GetString()}");
-
-                        if (detailsList.Count > 0)
-                            formattedDetails = "\n" + string.Join("\n", detailsList);
-                        else
-                            formattedDetails = "Keine besonderen Spesendetails.";
-                    }
-                }
-                catch
-                {
-                    // Fallback to raw string if parsing fails
-                }
 
                 string pharmacistSubject = $"Schichtbestätigung: {application.JobPost.Title} bei {pharmacy.PharmacyName}";
                 string pharmacistMessage = $@"Hallo {pharmacist.FullName},
 
 Ihre Schicht bei {pharmacy.PharmacyName} wurde erfolgreich zugewiesen.
-Details: {formattedDetails}
+Details: {application.JobPost.Description}
 
 WICHTIGER HINWEIS:
 Der Einsatz erfolgt als freier Mitarbeiter (Honorarvertretung). Der Auftragnehmer wird nicht in die Betriebsstruktur eingegliedert und unterliegt keinem fachlichen Weisungsrecht. Die Abführung von Steuern und Sozialabgaben obliegt vollumfänglich dem Auftragnehmer.
@@ -234,22 +160,43 @@ Der Einsatz erfolgt als freier Mitarbeiter (Honorarvertretung). Der Auftragnehme
                 _ = _emailService.SendEmailAsync(pharmacist.Email, pharmacistSubject, pharmacistMessage);
                 _ = _emailService.SendEmailAsync(pharmacy.Email, pharmacySubject, pharmacyMessage);
             }
-            else if (newStatus == JobApplicationStatus.Invoiced)
+            else if (newStatus == "Invoiced" && newInvoice != null && timesheet != null && application.JobPost?.Pharmacy != null)
             {
-                // The actual invoice generation and PDF storage is handled exclusively by TimesheetController.Approve
-                // We just send a notification email here.
-                if (application.JobPost?.Pharmacy != null && application.Pharmacist != null)
+                try
                 {
+                    // Update InvoiceNumber now that we have the ID
+                    newInvoice.InvoiceNumber = $"INV-{DateTime.UtcNow:yyyy}-{newInvoice.Id:D6}";
+                    await _context.SaveChangesAsync(); // Update the generated number (safe since it's just an update)
+
                     var pharmacy = application.JobPost.Pharmacy;
-                    string subject = $"Rechnungen für Einsatz {application.JobPost.Title} verfügbar";
+                    
+                    // Generate PDF dynamically in-memory
+                    var pdfBytes = _invoiceService.GeneratePharmacyInvoice(
+                        newInvoice.Id, 
+                        timesheet, 
+                        pharmacy.PharmacyName, 
+                        pharmacy.Street + " " + pharmacy.HouseNumber + ", " + pharmacy.PostalCode + " " + pharmacy.City, 
+                        pharmacy.ContactPerson ?? "Apothekenleitung"
+                    );
+
+                    string subject = $"Rechnung {newInvoice.InvoiceNumber} - ServiceApotheke";
                     string message = $@"Hallo {pharmacy.ContactPerson ?? "Apothekenleitung"},
 
-Ihr Einsatz wurde abgerechnet. Die Service-Rechnung des Apothekers sowie die Provisionsrechnung der Plattform stehen in Ihrem Dashboard zum Download bereit.
+anbei erhalten Sie die Rechnung {newInvoice.InvoiceNumber} für den kürzlich abgeschlossenen Einsatz.
+Der Gesamtbetrag lautet {newInvoice.TotalAmount:F2} €.
+
+Bitte überweisen Sie den Betrag innerhalb von 14 Tagen.
 
 Mit freundlichen Grüßen,
 Ihr ServiceApotheke Team";
 
-                    _ = _emailService.SendEmailAsync(pharmacy.Email, subject, message);
+                    // Dispatch SMTP email with attachment
+                    await _emailService.SendEmailAsync(pharmacy.Email, subject, message, pdfBytes, $"{newInvoice.InvoiceNumber}.pdf");
+                }
+                catch (Exception ex)
+                {
+                    // Catch exception and log to stdout, leaving the DB state consistent
+                    Console.WriteLine($"[EMAIL ERROR] Failed to send invoice email for Invoice ID {newInvoice.Id}. Details: {ex.Message}");
                 }
             }
 

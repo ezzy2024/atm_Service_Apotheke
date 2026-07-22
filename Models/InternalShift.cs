@@ -14,7 +14,7 @@ namespace ServiceApotheke.API.Models
         
         public bool IsEmergencyDuty { get; set; } = false; // Notdienst flag
         
-        public string PaymentStatus { get; set; } = "Unpaid"; // Unpaid, Invoiced, Paid
+        public string PaymentStatus { get; set; } = "Pending"; // Pending, Invoiced, Paid
         
         public string? RateNegotiatedBy { get; set; } // e.g. "Pharmacy", "Pharmacist"
         public DateTime? AcceptedAt { get; set; }
