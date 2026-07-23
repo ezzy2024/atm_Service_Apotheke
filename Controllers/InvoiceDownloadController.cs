@@ -121,7 +121,7 @@ namespace ServiceApotheke.API.Controllers
             return File(pdfBytes, "application/pdf", $"Rechnung_{invoice.InvoiceNumber}.pdf");
         }
 
-        [HttpGet("{id}/zugferd")]
+        [HttpGet("{id}/xml")]
         public async Task<IActionResult> DownloadZugferdXml(int id)
         {
             var token = Request.Query["token"].ToString();
@@ -200,7 +200,7 @@ namespace ServiceApotheke.API.Controllers
             var invoiceService = new ServiceApotheke.API.Services.InvoiceService();
             var xmlBytes = invoiceService.GenerateZugferdXml(invoice.Id, invoice.Timesheet!, pharmacist, pharmacyName);
 
-            return File(xmlBytes, "application/xml", $"Rechnung_{invoice.InvoiceNumber}_ZUGFeRD.xml");
+            return File(xmlBytes, "application/xml", $"Rechnung_{invoice.InvoiceNumber}_Daten.xml");
         }
     }
 }
