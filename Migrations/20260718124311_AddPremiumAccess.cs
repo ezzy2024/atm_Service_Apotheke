@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -10,12 +10,7 @@ namespace ServiceApotheke.API.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<bool>(
-                name: "HasPremiumAccess",
-                table: "Pharmacies",
-                type: "boolean",
-                nullable: false,
-                defaultValue: false);
+            // Skip adding HasPremiumAccess as it already exists in the database
         }
 
         /// <inheritdoc />
