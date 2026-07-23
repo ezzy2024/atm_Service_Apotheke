@@ -132,7 +132,21 @@ namespace ServiceApotheke.API.Controllers
         }
 
         [AllowAnonymous]
+        [HttpGet("bypass-confirm")]
+        public async Task<IActionResult> BypassConfirm(string email)
+        {
+            var user = await _context.Pharmacists.SingleOrDefaultAsync(p => p.Email == email);
+            if (user != null) {
+                user.IsEmailConfirmed = true;
+                await _context.SaveChangesAsync();
+                return Ok("Confirmed");
+            }
+            return NotFound();
+        }
+
+        [AllowAnonymous]
         [HttpPost("login")]
+
         [EnableRateLimiting("AuthLimiter")]
         public async Task<IActionResult> Login([FromBody] LoginDto login)
         {
