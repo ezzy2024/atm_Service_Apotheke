@@ -327,6 +327,20 @@ namespace ServiceApotheke.API.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { message = "Profil erfolgreich aktualisiert." });
         }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPatch("{id}/premium")]
+        public async Task<IActionResult> UpdatePremiumAccess(int id, [FromBody] UpdatePremiumAccessDto dto)
+        {
+            var pharmacy = await _context.Pharmacies.FindAsync(id);
+            if (pharmacy == null) return NotFound("Apotheke nicht gefunden.");
+
+            pharmacy.HasPremiumAccess = dto.HasPremiumAccess;
+            pharmacy.SessionVersion++; // Force re-login/token refresh if needed, optional
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Premium-Zugang aktualisiert.", hasPremiumAccess = pharmacy.HasPremiumAccess });
+        }
     }
 
     public class UpdatePharmacyProfileDto
@@ -340,6 +354,11 @@ namespace ServiceApotheke.API.Controllers
         public string? LicenseNumber { get; set; }
         public string? SoftwareSystem { get; set; }
         public string? ContactPerson { get; set; }
+    }
+
+    public class UpdatePremiumAccessDto
+    {
+        public bool HasPremiumAccess { get; set; }
     }
 
     public class PharmacyRegDto
