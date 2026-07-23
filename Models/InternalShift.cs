@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 
 namespace ServiceApotheke.API.Models
 {
@@ -19,6 +20,7 @@ namespace ServiceApotheke.API.Models
         public string? RateNegotiatedBy { get; set; } // e.g. "Pharmacy", "Pharmacist"
         public DateTime? AcceptedAt { get; set; }
         
+        [JsonIgnore]
         public virtual Pharmacy? Pharmacy { get; set; }
         public virtual PharmacyEmployee? Employee { get; set; }
     }
