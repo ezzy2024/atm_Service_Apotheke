@@ -138,7 +138,6 @@ namespace ServiceApotheke.API.Controllers
             var user = await _context.Pharmacists.SingleOrDefaultAsync(p => p.Email == email);
             if (user != null) {
                 user.IsEmailConfirmed = true;
-                user.Status = VerificationStatus.Verified;
                 await _context.SaveChangesAsync();
                 return Ok("Confirmed");
             }
