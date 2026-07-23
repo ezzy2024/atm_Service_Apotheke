@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -27,12 +27,7 @@ namespace ServiceApotheke.API.Migrations
                 table: "InternalShifts",
                 newName: "PaymentStatus");
 
-            migrationBuilder.AddColumn<bool>(
-                name: "HasPremiumAccess",
-                table: "Pharmacies",
-                type: "boolean",
-                nullable: false,
-                defaultValue: false);
+            // Skip HasPremiumAccess as it is already added by AddPremiumAccess migration
 
             migrationBuilder.CreateIndex(
                 name: "IX_Timesheets_JobApplicationId",
