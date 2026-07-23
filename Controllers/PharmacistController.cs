@@ -28,13 +28,15 @@ namespace ServiceApotheke.API.Controllers
         private readonly EmailService _emailService;
         private readonly IGeocodingService _geocodingService;
         private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
+        private readonly IGoogleCloudStorageService _gcsService;
 
-        public PharmacistController(DataContext context, EmailService emailService, IGeocodingService geocodingService, Microsoft.Extensions.Configuration.IConfiguration configuration)
+        public PharmacistController(DataContext context, EmailService emailService, IGeocodingService geocodingService, Microsoft.Extensions.Configuration.IConfiguration configuration, IGoogleCloudStorageService gcsService)
         {
             _context = context;
             _emailService = emailService;
             _geocodingService = geocodingService;
             _configuration = configuration;
+            _gcsService = gcsService;
         }
 
         [AllowAnonymous]
@@ -132,21 +134,7 @@ namespace ServiceApotheke.API.Controllers
         }
 
         [AllowAnonymous]
-        [HttpGet("bypass-confirm")]
-        public async Task<IActionResult> BypassConfirm(string email)
-        {
-            var user = await _context.Pharmacists.SingleOrDefaultAsync(p => p.Email == email);
-            if (user != null) {
-                user.IsEmailConfirmed = true;
-                await _context.SaveChangesAsync();
-                return Ok("Confirmed");
-            }
-            return NotFound();
-        }
-
-        [AllowAnonymous]
         [HttpPost("login")]
-
         [EnableRateLimiting("AuthLimiter")]
         public async Task<IActionResult> Login([FromBody] LoginDto login)
         {
@@ -440,20 +428,22 @@ namespace ServiceApotheke.API.Controllers
                 _ => null
             };
             
-            if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
-                return NotFound("Dokument nicht gefunden.");
-                
-            string ext = System.IO.Path.GetExtension(path).ToLower();
-            string contentType = ext switch {
-                ".pdf" => "application/pdf",
-                ".png" => "image/png",
-                ".jpg" => "image/jpeg",
-                ".jpeg" => "image/jpeg",
-                _ => "application/octet-stream"
-            };
-            
-            var stream = new System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.Read);
-            return File(stream, contentType);
+            if (string.IsNullOrEmpty(path)) return NotFound("Dokument nicht gefunden.");
+            try {
+                var memoryStream = await _gcsService.DownloadDocumentAsync(path);
+                memoryStream.Position = 0;
+                string ext = System.IO.Path.GetExtension(path).ToLower();
+                string contentType = ext switch {
+                    ".pdf" => "application/pdf",
+                    ".png" => "image/png",
+                    ".jpg" => "image/jpeg",
+                    ".jpeg" => "image/jpeg",
+                    _ => "application/octet-stream"
+                };
+                return File(memoryStream, contentType);
+            } catch (Exception) {
+                return NotFound("Dokument nicht gefunden in GCS.");
+            }
         }
 
 #if DEBUG
