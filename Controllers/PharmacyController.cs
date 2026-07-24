@@ -25,8 +25,9 @@ namespace ServiceApotheke.API.Controllers
         private readonly IWebHostEnvironment _env;
         private readonly ICryptographicStorageService _cryptoStorageService;
         private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
+        private readonly IGoogleCloudStorageService _gcsService;
 
-        public PharmacyController(DataContext context, EmailService emailService, IGeocodingService geocodingService, IWebHostEnvironment env, ICryptographicStorageService cryptoStorageService, Microsoft.Extensions.Configuration.IConfiguration configuration)
+        public PharmacyController(DataContext context, EmailService emailService, IGeocodingService geocodingService, IWebHostEnvironment env, ICryptographicStorageService cryptoStorageService, Microsoft.Extensions.Configuration.IConfiguration configuration, IGoogleCloudStorageService gcsService)
         {
             _context = context;
             _emailService = emailService;
@@ -34,6 +35,7 @@ namespace ServiceApotheke.API.Controllers
             _env = env;
             _cryptoStorageService = cryptoStorageService;
             _configuration = configuration;
+            _gcsService = gcsService;
         }
 
         [AllowAnonymous]
@@ -222,6 +224,47 @@ namespace ServiceApotheke.API.Controllers
             return Ok(pharmacy);
         }
 
+                [Authorize]
+        [HttpPost("{id}/upload-document")]
+        public async Task<IActionResult> UploadDocument(int id, IFormFile? license)
+        {
+            var pharmacy = await _context.Pharmacies.FindAsync(id);
+            if (pharmacy == null) return NotFound();
+
+            if (license == null)
+                return BadRequest("No file uploaded.");
+
+            var fileName = $"pharmacy_licenses/{id}_{System.Guid.NewGuid()}_{license.FileName}";
+            using var stream = license.OpenReadStream();
+            string gcsPath = await _gcsService.UploadDocumentAsync(stream, fileName, license.ContentType);
+            pharmacy.FreelanceContractDocumentPath = gcsPath;
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Betriebserlaubnis erfolgreich hochgeladen.", path = gcsPath });
+        }
+
+        [Authorize]
+        [HttpGet("{id}/document/license")]
+        public async Task<IActionResult> DownloadLicense(int id)
+        {
+            var pharmacy = await _context.Pharmacies.FindAsync(id);
+            if (pharmacy == null) return NotFound();
+
+            var path = pharmacy.FreelanceContractDocumentPath;
+            if (string.IsNullOrEmpty(path)) return NotFound("Dokument nicht gefunden.");
+            try {
+                var memoryStream = await _gcsService.DownloadDocumentAsync(path);
+                memoryStream.Position = 0;
+                string ext = System.IO.Path.GetExtension(path).ToLower();
+                string contentType = ext switch {
+                    ".pdf" => "application/pdf",
+                    ".png" => "image/png",
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    _ => "application/octet-stream"
+                };
+                return File(memoryStream, contentType);
+            } catch (Exception) { return NotFound("Dokument nicht gefunden in GCS."); }
+        }
+
         [AllowAnonymous]
         [HttpPost("forgot-password")]
         [EnableRateLimiting("AuthLimiter")]
@@ -385,3 +428,5 @@ namespace ServiceApotheke.API.Controllers
 
 
 }
+
+
